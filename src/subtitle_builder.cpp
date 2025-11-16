@@ -159,8 +159,7 @@ std::string wrap_single_line(const std::string& line, FontContext& ctx, double m
     return rebuilt;
 }
 
-std::string wrap_if_too_wide_cached(const std::string& text, FontContext& ctx, int video_width, double max_fraction) {
-    double max_width = video_width * max_fraction;
+std::string wrap_if_too_wide_cached(const std::string& text, FontContext& ctx, double max_width) {
     auto lines = split_ass_lines(text);
     bool wrapping_applied = false;
     for (auto& line : lines) {
@@ -259,10 +258,16 @@ std::string buildAssFile(const AppConfig& config,
     ass_file << "[Script Info]\nTitle: Quran Video Subtitles\nScriptType: v4.00+\n";
     ass_file << "PlayResX: " << config.width << "\nPlayResY: " << config.height << "\n\n";
 
+    double paddingFraction = std::clamp(config.textHorizontalPadding, 0.0, 0.45);
+    double paddingPixels = config.width * paddingFraction;
+    int styleMargin = std::max(10, static_cast<int>(paddingPixels));
+    double arabicWrapWidth = std::max(50.0, (config.width - 2.0 * paddingPixels) * config.arabicMaxWidthFraction);
+    double translationWrapWidth = std::max(50.0, (config.width - 2.0 * paddingPixels) * config.translationMaxWidthFraction);
+
     ass_file << "[V4+ Styles]\n";
     ass_file << "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n";
-    ass_file << "Style: Arabic," << config.arabicFont.family << "," << config.arabicFont.size << "," << format_ass_color(config.arabicFont.color) << ",&H000000FF,&H00000000,&H99000000,0,0,0,0,100,100,0,0,1,1,1,5,10,10," << config.arabicFont.size * 1.5 << ",1\n";
-    ass_file << "Style: Translation," << config.translationFont.family << "," << config.translationFont.size << "," << format_ass_color(config.translationFont.color) << ",&H000000FF,&H00000000,&H99000000,0,0,0,0,100,100,0,0,1,1,1,5,10,10," << config.height / 2 + config.translationFont.size << ",1\n\n";
+    ass_file << "Style: Arabic," << config.arabicFont.family << "," << config.arabicFont.size << "," << format_ass_color(config.arabicFont.color) << ",&H000000FF,&H00000000,&H99000000,0,0,0,0,100,100,0,0,1,1,1,5," << styleMargin << "," << styleMargin << "," << config.arabicFont.size * 1.5 << ",1\n";
+    ass_file << "Style: Translation," << config.translationFont.family << "," << config.translationFont.size << "," << format_ass_color(config.translationFont.color) << ",&H000000FF,&H00000000,&H99000000,0,0,0,0,100,100,0,0,1,1,1,5," << styleMargin << "," << styleMargin << "," << config.height / 2 + config.translationFont.size << ",1\n\n";
     ass_file << "[Events]\n";
     ass_file << "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n";
 
@@ -294,19 +299,23 @@ std::string buildAssFile(const AppConfig& config,
             processed_verses[i] = verses[i];
             int arabic_size = adaptive_font_size_arabic(processed_verses[i].text, config.arabicFont.size);
             int arabic_word_count = std::count(processed_verses[i].text.begin(), processed_verses[i].text.end(), ' ') + 1;
+            bool growArabic = config.enableTextGrowth && should_grow(processed_verses[i].text, config.textWrapThreshold);
+            double arabicGrowthFactor = growArabic
+                ? std::min(config.maxGrowthFactor, 1.0 + processed_verses[i].durationInSeconds * config.growthRateFactor)
+                : 1.0;
+            int maxArabicSize = std::max(1, static_cast<int>(arabic_size * arabicGrowthFactor));
             
-            if (arabic_word_count >= config.textWrapThreshold) {
-                FontContext arabic_ctx = init_font(fs::path(config.arabicFont.file), arabic_size);
-                processed_verses[i].text = wrap_if_too_wide_cached(processed_verses[i].text, arabic_ctx, config.width, config.arabicMaxWidthFraction);
-                free_font(arabic_ctx);
-            }
+            FontContext arabic_ctx = init_font(fs::path(config.arabicFont.file), maxArabicSize);
+            processed_verses[i].text = wrap_if_too_wide_cached(processed_verses[i].text, arabic_ctx, arabicWrapWidth);
+            free_font(arabic_ctx);
 
             int translation_size = adaptive_font_size_translation(processed_verses[i].translation, config.translationFont.size);
-            FontContext translation_ctx = init_font(fs::path(config.translationFont.file), translation_size);
-            int translation_word_count = std::count(processed_verses[i].translation.begin(), processed_verses[i].translation.end(), ' ') + 1;
-            if (translation_word_count >= config.textWrapThreshold) {
-                processed_verses[i].translation = wrap_if_too_wide_cached(processed_verses[i].translation, translation_ctx, config.width, config.translationMaxWidthFraction);
-            }
+            double translationGrowthFactor = growArabic
+                ? std::min(config.maxGrowthFactor, 1.0 + processed_verses[i].durationInSeconds * config.growthRateFactor)
+                : 1.0;
+            int maxTranslationSize = std::max(1, static_cast<int>(translation_size * translationGrowthFactor));
+            FontContext translation_ctx = init_font(fs::path(config.translationFont.file), maxTranslationSize);
+            processed_verses[i].translation = wrap_if_too_wide_cached(processed_verses[i].translation, translation_ctx, translationWrapWidth);
             free_font(translation_ctx);
         }));
         

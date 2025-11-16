@@ -90,6 +90,7 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     cfg.textWrapThreshold = data.value("textWrapThreshold", 20);
     cfg.arabicMaxWidthFraction = data.value("arabicMaxWidthFraction", 0.95);
     cfg.translationMaxWidthFraction = data.value("translationMaxWidthFraction", 0.85);
+    cfg.textHorizontalPadding = data.value("textHorizontalPadding", 0.05);
     
     // Layout parameters
     cfg.verticalShift = data.value("verticalShift", 40.0);

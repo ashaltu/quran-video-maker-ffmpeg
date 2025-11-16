@@ -57,6 +57,7 @@ struct AppConfig {
     int textWrapThreshold;          // word count threshold for wrapping
     double arabicMaxWidthFraction;  // max fraction of screen width for Arabic
     double translationMaxWidthFraction; // max fraction of screen width for translation
+    double textHorizontalPadding;   // fraction of width reserved as padding on each side
     
     // Layout parameters
     double verticalShift;           // pixels to shift text vertically
