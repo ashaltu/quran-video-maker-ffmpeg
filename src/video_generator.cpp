@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <thread>
 #include <future>
+#include <cctype>
 #include <nlohmann/json.hpp>
 #include <hb.h>
 #include <hb-ft.h>
@@ -126,6 +127,61 @@ namespace {
         return localized;
     }
 
+    bool is_basic_latin_ascii(unsigned char c) {
+        return c >= 0x20 && c <= 0x7E;
+    }
+
+    std::string apply_latin_font_fallback(const std::string& text,
+                                          const std::string& fallbackFont,
+                                          const std::string& primaryFont) {
+        if (fallbackFont.empty() || fallbackFont == primaryFont) return text;
+
+        bool hasLatin = false;
+        for (unsigned char c : text) {
+            if (is_basic_latin_ascii(c)) {
+                hasLatin = true;
+                break;
+            }
+        }
+        if (!hasLatin) return text;
+
+        std::string result;
+        bool usingFallback = false;
+
+        auto append_font_tag = [&](const std::string& font) {
+            result += "{\\fn" + font + "}";
+        };
+
+        for (size_t i = 0; i < text.size();) {
+            unsigned char c = static_cast<unsigned char>(text[i]);
+            size_t len = 1;
+            if ((c & 0xF8) == 0xF0) {
+                len = 4;
+            } else if ((c & 0xF0) == 0xE0) {
+                len = 3;
+            } else if ((c & 0xE0) == 0xC0) {
+                len = 2;
+            }
+
+            bool isLatin = (len == 1) && is_basic_latin_ascii(c);
+            if (isLatin && !usingFallback) {
+                append_font_tag(fallbackFont);
+                usingFallback = true;
+            } else if (!isLatin && usingFallback) {
+                append_font_tag(primaryFont);
+                usingFallback = false;
+            }
+
+            result.append(text, i, len);
+            i += len;
+        }
+
+        if (usingFallback) {
+            append_font_tag(primaryFont);
+        }
+        return result;
+    }
+
     int adaptive_font_size_arabic(const std::string& text, int base_size) {
         int word_count = std::count(text.begin(), text.end(), ' ') + 1;
         if (word_count < 10) return 100;
@@ -208,6 +264,10 @@ namespace {
         std::string localized_surah_name = get_localized_surah_name(options.surah, language_code);
         std::string localized_surah_label = get_localized_surah_label(language_code);
         std::string localized_surah_text = localized_surah_label + " " + localized_surah_name;
+        std::string localized_surah_text_render =
+            apply_latin_font_fallback(localized_surah_text,
+                                      QuranData::defaultTranslationFontFamily,
+                                      config.translationFont.family);
 
         ass_file << "[Script Info]\nTitle: Quran Video Subtitles\nScriptType: v4.00+\n";
         ass_file << "PlayResX: " << config.width << "\nPlayResY: " << config.height << "\n\n";
@@ -227,14 +287,14 @@ namespace {
                 << ",Translation,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << config.height/2 << ")"
                 << "\\fs" << scaled_font_size
                 << "\\b1\\bord4\\shad3\\be2\\c&HFFD700&\\3c&H000000&"
-                << "\\fad(0," << config.introFadeOutMs << ")}" << localized_surah_text << "\n";
+                << "\\fad(0," << config.introFadeOutMs << ")}" << localized_surah_text_render << "\n";
 
         ass_file << "Dialogue: 0,0:00:00.00," << format_time_ass(intro_duration)
                 << ",Translation,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << (config.height/2-1) << ")"
                 << "\\fs" << scaled_font_size
                 << "\\b1\\bord0\\shad0\\c&HFFFFFF&"
                 << "\\fad(0," << config.introFadeOutMs << ")}" 
-                << localized_surah_text << "\n";
+                << localized_surah_text_render << "\n";
 
         double cumulative_time = intro_duration + pause_after_intro_duration;
         
@@ -459,6 +519,16 @@ void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfi
         std::string localized_reciter_name = get_localized_reciter_name(config.reciterId, language_code);
         std::string localized_surah_number = get_localized_number(options.surah, language_code);
 
+        auto with_fallback = [&](const std::string& text) {
+            return apply_latin_font_fallback(text,
+                                             QuranData::defaultTranslationFontFamily,
+                                             config.translationFont.family);
+        };
+        std::string rendered_label = with_fallback(localized_surah_label);
+        std::string rendered_surah_name = with_fallback(localized_surah_name);
+        std::string rendered_reciter_name = with_fallback(localized_reciter_name);
+        std::string rendered_surah_number = with_fallback(localized_surah_number);
+
         std::vector<std::string> colors = config.thumbnailColors;
         if (colors.empty()) {
             colors = {
@@ -509,10 +579,10 @@ void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfi
 
         ass_file << "[Events]\n";
         ass_file << "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n";
-        ass_file << "Dialogue: 0,0:00:00.00,0:00:05.00,Label,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << (config.height/2 - scaled_font_size*0.6) << ")\\fad(0," << config.introFadeOutMs << ")}" << localized_surah_label << "\n";
-        ass_file << "Dialogue: 0,0:00:00.00,0:00:05.00,Main,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << (config.height/2) << ")\\fad(0," << config.introFadeOutMs << ")}" << localized_surah_name << "\n";
-        ass_file << "Dialogue: 0,0:00:00.00,0:00:05.00,Reciter,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << (config.height/2 + scaled_font_size*0.6) << ")\\fad(0," << config.introFadeOutMs << ")}" << localized_reciter_name << "\n";
-        ass_file << "Dialogue: 0,0:00:00.00,0:00:05.00,Number,,0,0,0,,{\\an" << align << "\\pos(" << number_x << ",50)\\fad(0," << config.introFadeOutMs << ")}" << localized_surah_number << "\n";
+        ass_file << "Dialogue: 0,0:00:00.00,0:00:05.00,Label,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << (config.height/2 - scaled_font_size*0.6) << ")\\fad(0," << config.introFadeOutMs << ")}" << rendered_label << "\n";
+        ass_file << "Dialogue: 0,0:00:00.00,0:00:05.00,Main,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << (config.height/2) << ")\\fad(0," << config.introFadeOutMs << ")}" << rendered_surah_name << "\n";
+        ass_file << "Dialogue: 0,0:00:00.00,0:00:05.00,Reciter,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << (config.height/2 + scaled_font_size*0.6) << ")\\fad(0," << config.introFadeOutMs << ")}" << rendered_reciter_name << "\n";
+        ass_file << "Dialogue: 0,0:00:00.00,0:00:05.00,Number,,0,0,0,,{\\an" << align << "\\pos(" << number_x << ",50)\\fad(0," << config.introFadeOutMs << ")}" << rendered_surah_number << "\n";
                 
         ass_file.close();
 

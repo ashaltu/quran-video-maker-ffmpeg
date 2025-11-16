@@ -131,6 +131,8 @@ The renderer keeps the intro cards and thumbnails in sync with the chosen transl
 - `data/surah-names/<lang>.json` – transliterated or localized surah names
 - `data/reciter-names/<lang>.json` – transliterated reciter names
 
+Whenever localized metadata falls back to Basic Latin characters (e.g., a missing translation for “Surah” or digits you kept as `0-9`), the renderer automatically switches those characters to the default translation font (`American Captain`) so you get a predictable look instead of OS fallback fonts.
+
 Each translation ID is associated with a language code in `src/quran_data.h`. When adding a translation, make sure the code has entries in all of the files above and that the translation JSON (following the [QUL format](https://qul.tarteel.ai/resources/translation)) lives under `data/translations/<lang>/`. See [CONTRIBUTING.md](CONTRIBUTING.md) for a full checklist.
 
 ## Performance
