@@ -282,7 +282,7 @@ std::string buildAssFile(const AppConfig& config,
     ass_file << "Dialogue: 0,0:00:00.00," << format_time_ass(intro_duration)
             << ",Translation,,0,0,0,,{\\an5\\pos(" << config.width/2 << "," << config.height/2 << ")"
             << "\\fs" << scaled_font_size
-            << "\\b1\\bord4\\shad3\\be2\\c&HFFD700&\\3c&H000000&"
+            << "\\b1\\bord4\\shad3\\be2\\c&HFFFFFF&\\3c&H000000&"
             << "\\fad(0," << config.introFadeOutMs << ")}" << localized_surah_text_render << "\n";
 
     std::string range_text = LocalizationUtils::getLocalizedNumber(options.surah, language_code) +
