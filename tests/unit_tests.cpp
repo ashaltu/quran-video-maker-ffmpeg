@@ -33,6 +33,35 @@ fs::path getProjectRoot() {
     return root;
 }
 
+bool isGitLfsPointerFile(const fs::path& path) {
+    std::ifstream in(path);
+    if (!in.is_open()) return false;
+    std::string firstLine;
+    if (!std::getline(in, firstLine)) return false;
+    return firstLine.rfind("version https://git-lfs.github.com/spec/v1", 0) == 0;
+}
+
+void ensureArchiveMaterialized(const fs::path& archive) {
+    if (!isGitLfsPointerFile(archive)) return;
+
+    const std::string target = archive.filename().string();
+    auto run = [](const std::string& cmd, const std::string& errorMessage) {
+        const int rc = std::system(cmd.c_str());
+        if (rc != 0) {
+            throw std::runtime_error(errorMessage);
+        }
+    };
+
+    run("git lfs pull --exclude='' --include='" + target + "'",
+        "Failed to download data archive via git-lfs");
+    run("git lfs checkout '" + target + "'",
+        "Failed to checkout data archive via git-lfs");
+
+    if (isGitLfsPointerFile(archive)) {
+        throw std::runtime_error("Git LFS did not materialize the data archive");
+    }
+}
+
 void ensureDataArchiveExtracted() {
     const fs::path dataDir = getProjectRoot() / "data";
     if (fs::exists(dataDir)) return;
@@ -41,6 +70,8 @@ void ensureDataArchiveExtracted() {
     if (!fs::exists(archive)) {
         throw std::runtime_error("Missing data.tar archive required for unit tests");
     }
+
+    ensureArchiveMaterialized(archive);
 
     const std::string command = "tar -xf \"" + archive.string() + "\" -C \"" + getProjectRoot().string() + "\"";
     const int result = std::system(command.c_str());
