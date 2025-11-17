@@ -31,14 +31,15 @@ FetchContent_MakeAvailable(nlohmann_json)
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
-# Find FFmpeg libraries using PkgConfig
-pkg_check_modules(AVFORMAT libavformat REQUIRED)
-pkg_check_modules(AVCODEC libavcodec REQUIRED)
-pkg_check_modules(AVFILTER libavfilter REQUIRED)
-pkg_check_modules(AVUTIL libavutil REQUIRED)
-pkg_check_modules(SWSCALE libswscale REQUIRED)
-pkg_check_modules(FREETYPE freetype2 REQUIRED)
-pkg_check_modules(HARFBUZZ harfbuzz REQUIRED)
+# Find FFmpeg libraries using PkgConfig. Request IMPORTED_TARGET so link and
+# include directories are propagated correctly on all platforms (e.g. macOS).
+pkg_check_modules(AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
+pkg_check_modules(AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
+pkg_check_modules(AVFILTER REQUIRED IMPORTED_TARGET libavfilter)
+pkg_check_modules(AVUTIL REQUIRED IMPORTED_TARGET libavutil)
+pkg_check_modules(SWSCALE REQUIRED IMPORTED_TARGET libswscale)
+pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
+pkg_check_modules(HARFBUZZ REQUIRED IMPORTED_TARGET harfbuzz)
 
 
 add_library(qvm_lib
@@ -60,23 +61,16 @@ add_executable(quran-video-maker src/main.cpp)
 
 target_include_directories(qvm_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${AVFORMAT_INCLUDE_DIRS}
-    ${AVCODEC_INCLUDE_DIRS}
-    ${AVFILTER_INCLUDE_DIRS}
-    ${AVUTIL_INCLUDE_DIRS}
-    ${SWSCALE_INCLUDE_DIRS}
-    ${FREETYPE_INCLUDE_DIRS}
-    ${HARFBUZZ_INCLUDE_DIRS}
 )
 
 target_link_libraries(qvm_lib PUBLIC
-    ${AVFORMAT_LIBRARIES}
-    ${AVCODEC_LIBRARIES}
-    ${AVFILTER_LIBRARIES}
-    ${AVUTIL_LIBRARIES}
-    ${SWSCALE_LIBRARIES}
-    ${FREETYPE_LIBRARIES}
-    ${HARFBUZZ_LIBRARIES}
+    PkgConfig::AVFORMAT
+    PkgConfig::AVCODEC
+    PkgConfig::AVFILTER
+    PkgConfig::AVUTIL
+    PkgConfig::SWSCALE
+    PkgConfig::FREETYPE
+    PkgConfig::HARFBUZZ
     cpr::cpr
     nlohmann_json::nlohmann_json
     Threads::Threads

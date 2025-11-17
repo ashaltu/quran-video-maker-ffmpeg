@@ -1,7 +1,9 @@
 #include <cassert>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 #include "types.h"
 #include "config_loader.h"
 #include "cache_utils.h"
@@ -29,6 +31,22 @@ VerseData makeSampleVerse() {
 fs::path getProjectRoot() {
     static const fs::path root = fs::absolute(fs::path(__FILE__)).parent_path().parent_path();
     return root;
+}
+
+void ensureDataArchiveExtracted() {
+    const fs::path dataDir = getProjectRoot() / "data";
+    if (fs::exists(dataDir)) return;
+
+    const fs::path archive = getProjectRoot() / "data.tar";
+    if (!fs::exists(archive)) {
+        throw std::runtime_error("Missing data.tar archive required for unit tests");
+    }
+
+    const std::string command = "tar -xf \"" + archive.string() + "\" -C \"" + getProjectRoot().string() + "\"";
+    const int result = std::system(command.c_str());
+    if (result != 0 || !fs::exists(dataDir)) {
+        throw std::runtime_error("Failed to extract Quran dataset for tests");
+    }
 }
 
 void testConfigLoader() {
@@ -162,6 +180,7 @@ void testCustomAudioPlan() {
 
 int main() {
     fs::current_path(getProjectRoot());
+    ensureDataArchiveExtracted();
     testConfigLoader();
     testCacheUtils();
     testLocalization();
