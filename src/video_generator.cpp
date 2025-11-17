@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <algorithm>
 #include "subtitle_builder.h"
 #include "localization_utils.h"
@@ -30,7 +31,16 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
         std::string ass_filename = SubtitleBuilder::buildAssFile(config, options, verses, intro_duration, pause_after_intro_duration);
 
         double verses_duration = 0.0;
-        for (const auto& verse : verses) verses_duration += verse.durationInSeconds;
+        double minTimestampSec = std::numeric_limits<double>::infinity();
+        double maxTimestampSec = 0.0;
+        for (const auto& verse : verses) {
+            verses_duration += verse.durationInSeconds;
+            minTimestampSec = std::min(minTimestampSec, verse.timestampFromMs / 1000.0);
+            maxTimestampSec = std::max(maxTimestampSec, verse.timestampToMs / 1000.0);
+        }
+        if (!std::isfinite(minTimestampSec)) {
+            minTimestampSec = 0.0;
+        }
         double total_duration = intro_duration + pause_after_intro_duration + verses_duration;
 
         std::stringstream filter_spec;
@@ -91,8 +101,8 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
             }
             if (audioPath.empty()) throw std::runtime_error("No audio path found for gapless render");
             bool customClip = !verses.empty() && verses[0].fromCustomAudio;
-            double startTime = customClip ? 0.0 : verses[0].timestampFromMs / 1000.0;
-            double endTime = verses.back().timestampToMs / 1000.0;
+            double startTime = customClip ? 0.0 : minTimestampSec;
+            double endTime = customClip ? verses_duration : maxTimestampSec;
             double trimmedDuration = std::max(0.0, endTime - startTime);
             double measuredAudioDuration = customClip
                 ? Audio::CustomAudioProcessor::probeDuration(audioPath)

@@ -441,10 +441,15 @@ std::vector<VerseData> API::fetchQuranData(const CLIOptions& options, const AppC
         }
     }
 
-    if (config.recitationMode == RecitationMode::GAPLESS &&
-        !options.customAudioPath.empty() &&
-        options.from > 1) {
+    bool hasCustomRange = config.recitationMode == RecitationMode::GAPLESS &&
+                          !options.customAudioPath.empty();
+    bool shouldSpliceCustomClip = hasCustomRange && options.from > 1;
+    if (shouldSpliceCustomClip) {
         Audio::CustomAudioProcessor::spliceRange(results, options, audioDir);
+    } else if (hasCustomRange) {
+        for (auto& verse : results) {
+            verse.fromCustomAudio = false;
+        }
     }
 
     return results;

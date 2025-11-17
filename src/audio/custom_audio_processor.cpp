@@ -97,7 +97,7 @@ double CustomAudioProcessor::probeDuration(const std::string& filepath) {
 SplicePlan CustomAudioProcessor::buildSplicePlan(const std::vector<VerseData>& verses,
                                                  const CLIOptions& options) {
     SplicePlan plan;
-    if (options.customAudioPath.empty() || options.from <= 1 || verses.empty()) {
+    if (options.customAudioPath.empty() || verses.empty()) {
         return plan;
     }
 
