@@ -44,6 +44,7 @@ Use your own audio files with VTT/SRT timing files for complete flexibility.
 - Custom verse range slicing trims the requested ayat (plus Bismillah) into a standalone clip so late-range renders stay in sync and no longer drop the final verse
 
 **TODOs:**
+- Fix bug where just the last verse subtitle doesn't appear in the video (the audio is present though)
 - Improve VTT/SRT parser robustness and validation
 - Add validation of timing file completeness
 - Add examples and documentation for creating timing files
