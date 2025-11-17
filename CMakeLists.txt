@@ -69,6 +69,16 @@ target_include_directories(qvm_lib PUBLIC
     ${HARFBUZZ_INCLUDE_DIRS}
 )
 
+target_link_directories(qvm_lib PUBLIC
+    ${AVFORMAT_LIBRARY_DIRS}
+    ${AVCODEC_LIBRARY_DIRS}
+    ${AVFILTER_LIBRARY_DIRS}
+    ${AVUTIL_LIBRARY_DIRS}
+    ${SWSCALE_LIBRARY_DIRS}
+    ${FREETYPE_LIBRARY_DIRS}
+    ${HARFBUZZ_LIBRARY_DIRS}
+)
+
 target_link_libraries(qvm_lib PUBLIC
     ${AVFORMAT_LIBRARIES}
     ${AVCODEC_LIBRARIES}
