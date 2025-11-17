@@ -36,8 +36,9 @@ jobs:
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
 
     - name: Test
-      working-directory: ${{ github.workspace }}/$BUILD_DIR
-      run: ctest --build-config $BUILD_TYPE
+      run: |
+        cd "$BUILD_DIR"
+        ctest --build-config "$BUILD_TYPE"
 
 
   build-macos:
@@ -51,6 +52,11 @@ jobs:
         brew update
         brew install ffmpeg freetype harfbuzz
 
+    - name: Export FFmpeg pkgconfig paths (macOS)
+      run: |
+        export PKG_CONFIG_PATH="/opt/homebrew/opt/ffmpeg/lib/pkgconfig:/usr/local/opt/ffmpeg/lib/pkgconfig:$PKG_CONFIG_PATH"
+        echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
     - name: Configure CMake
       run: >
         cmake -B $BUILD_DIR
@@ -61,5 +67,6 @@ jobs:
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
 
     - name: Test
-      working-directory: ${{ github.workspace }}/$BUILD_DIR
-      run: ctest --build-config $BUILD_TYPE
+      run: |
+        cd "$BUILD_DIR"
+        ctest --build-config "$BUILD_TYPE"
