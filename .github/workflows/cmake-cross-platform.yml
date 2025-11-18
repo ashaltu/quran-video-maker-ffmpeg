@@ -17,6 +17,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        lfs: true
 
     - name: Install FFmpeg dev packages
       run: |
@@ -35,6 +37,9 @@ jobs:
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
 
+    - name: Extract test data
+      run: tar -xf data.tar
+
     - name: Test
       run: |
         cd "$BUILD_DIR"
@@ -46,6 +51,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        lfs: true
 
     - name: Install FFmpeg dependencies
       run: |
@@ -65,6 +72,9 @@ jobs:
 
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
+
+    - name: Extract test data
+      run: tar -xf data.tar
 
     - name: Test
       run: |
