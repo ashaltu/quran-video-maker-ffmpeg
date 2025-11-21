@@ -26,7 +26,8 @@ jobs:
         sudo apt-get install -y \
           libavformat-dev libavcodec-dev libavfilter-dev \
           libavutil-dev libswscale-dev \
-          libfreetype6-dev libharfbuzz-dev
+          libfreetype6-dev libharfbuzz-dev \
+          libcurl4-openssl-dev
 
     - name: Configure CMake
       run: cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=$BUILD_TYPE -S .
@@ -56,7 +57,7 @@ jobs:
     - name: Install FFmpeg dependencies
       run: |
         brew update
-        brew install ffmpeg freetype harfbuzz
+        brew install ffmpeg freetype harfbuzz curl
 
     - name: Export FFmpeg pkgconfig paths (macOS)
       run: |
@@ -83,12 +84,14 @@ jobs:
   release:
     needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
       with:
         lfs: true
-        token: ${{ secrets.ACTIONS_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Extract data for release packaging
       run: |
@@ -107,10 +110,17 @@ jobs:
       id: sha
       run: echo "sha256=$(shasum -a 256 qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
 
+    - name: Configure git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
     - name: Update Homebrew formula
       run: |
-        FORM="homebrew/Formula/qvm-ffmpeg.rb"
-        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/archive/refs/tags/${{ github.event.inputs.version }}.tar.gz"
+        FORM="Formula/qvm-ffmpeg.rb"
+        VERSION="${{ github.event.inputs.version }}"
+        # Use release download URL (includes extracted data/)
+        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${VERSION}/qvm-ffmpeg-${VERSION}.tar.gz"
 
         sed -i.bak \
           -e "s|url \".*\"|url \"${URL}\"|" \
@@ -119,8 +129,8 @@ jobs:
 
         rm "$FORM.bak"
         git add "$FORM"
-        git commit -m "Release ${{ github.event.inputs.version }}"
-        git tag ${{ github.event.inputs.version }}
+        git commit -m "Release ${VERSION}"
+        git tag ${VERSION}
         git push --follow-tags
 
     - name: Publish GitHub Release

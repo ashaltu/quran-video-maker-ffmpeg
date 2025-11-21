@@ -8,6 +8,7 @@
 #include <future>
 #include <cctype>
 #include <algorithm>
+#include <vector>
 #include "localization_utils.h"
 #include "text/text_layout.h"
 
@@ -45,6 +46,172 @@ bool is_basic_latin_ascii(unsigned char c) {
 } // namespace
 
 namespace SubtitleBuilder {
+
+// Mirror paired punctuation for RTL text
+char mirrorChar(char c) {
+    switch (c) {
+        case '(': return ')';
+        case ')': return '(';
+        case '[': return ']';
+        case ']': return '[';
+        case '{': return '}';
+        case '}': return '{';
+        case '<': return '>';
+        case '>': return '<';
+        default: return c;
+    }
+}
+
+std::string mirrorPunctuation(const std::string& text) {
+    std::string result;
+    result.reserve(text.size());
+    for (char c : text) {
+        result += mirrorChar(c);
+    }
+    return result;
+}
+
+// Tokenize text into words and parenthetical groups
+// Keeps content inside parentheses together as single tokens
+std::vector<std::string> tokenizeWithParens(const std::string& text) {
+    std::vector<std::string> tokens;
+    std::string current;
+    int parenDepth = 0;
+
+    for (size_t i = 0; i < text.size(); ++i) {
+        char c = text[i];
+
+        if (c == '(' || c == '[' || c == '{') {
+            if (parenDepth == 0 && !current.empty()) {
+                // Save any accumulated word before the paren
+                if (current.find_first_not_of(' ') != std::string::npos) {
+                    // Split current by spaces and add each word
+                    std::istringstream iss(current);
+                    std::string word;
+                    while (iss >> word) {
+                        tokens.push_back(word);
+                    }
+                }
+                current.clear();
+            }
+            current += c;
+            parenDepth++;
+        } else if ((c == ')' || c == ']' || c == '}') && parenDepth > 0) {
+            current += c;
+            parenDepth--;
+            if (parenDepth == 0) {
+                // End of parenthetical group - save as single token
+                tokens.push_back(current);
+                current.clear();
+            }
+        } else if (c == ' ' && parenDepth == 0) {
+            if (!current.empty()) {
+                tokens.push_back(current);
+                current.clear();
+            }
+        } else {
+            current += c;
+        }
+    }
+
+    // Don't forget the last token
+    if (!current.empty()) {
+        if (current.find_first_not_of(' ') != std::string::npos) {
+            std::istringstream iss(current);
+            std::string word;
+            while (iss >> word) {
+                tokens.push_back(word);
+            }
+        }
+    }
+
+    return tokens;
+}
+
+// Reverse content inside parentheses for RTL
+std::string reverseParenContent(const std::string& token) {
+    if (token.empty()) return token;
+
+    // Check if this is a parenthetical group
+    char first = token[0];
+    char last = token[token.size() - 1];
+
+    bool isParenGroup = (first == '(' && last == ')') ||
+                        (first == '[' && last == ']') ||
+                        (first == '{' && last == '}');
+
+    if (isParenGroup && token.size() > 2) {
+        // Extract content, reverse words inside
+        // Keep outer parens as-is since content position is already correct
+        std::string content = token.substr(1, token.size() - 2);
+        std::istringstream iss(content);
+        std::vector<std::string> innerWords;
+        std::string word;
+        while (iss >> word) {
+            innerWords.push_back(word);
+        }
+        std::reverse(innerWords.begin(), innerWords.end());
+
+        std::string reversed;
+        reversed += first;  // Keep opening paren as-is
+        for (size_t i = 0; i < innerWords.size(); ++i) {
+            if (i > 0) reversed += " ";
+            reversed += mirrorPunctuation(innerWords[i]);
+        }
+        reversed += last;   // Keep closing paren as-is
+        return reversed;
+    }
+
+    return mirrorPunctuation(token);
+}
+
+// Reverse word order for RTL text since libass doesn't handle bidi properly
+// This reverses words in each line while preserving ASS line breaks (\\N)
+// Also keeps parenthetical content together and reverses it properly
+std::string reverseWordsForRTL(const std::string& text) {
+    std::string result;
+    std::string current_line;
+
+    size_t i = 0;
+    while (i < text.size()) {
+        // Check for ASS line break \\N
+        if (i + 1 < text.size() && text[i] == '\\' && text[i + 1] == 'N') {
+            // Reverse words in current line and append
+            if (!current_line.empty()) {
+                std::vector<std::string> tokens = tokenizeWithParens(current_line);
+                std::reverse(tokens.begin(), tokens.end());
+                for (size_t j = 0; j < tokens.size(); ++j) {
+                    if (j > 0) result += " ";
+                    result += reverseParenContent(tokens[j]);
+                }
+                current_line.clear();
+            }
+            result += "\\N";
+            i += 2;
+        } else {
+            current_line += text[i];
+            ++i;
+        }
+    }
+
+    // Handle the last line
+    if (!current_line.empty()) {
+        std::vector<std::string> tokens = tokenizeWithParens(current_line);
+        std::reverse(tokens.begin(), tokens.end());
+        for (size_t j = 0; j < tokens.size(); ++j) {
+            if (j > 0) result += " ";
+            result += reverseParenContent(tokens[j]);
+        }
+    }
+
+    return result;
+}
+
+// Apply RTL word reversal if the language is RTL
+std::string applyRTLIfNeeded(const std::string& text, bool isRTL) {
+    if (!isRTL) return text;
+    return reverseWordsForRTL(text);
+}
 
 std::string applyLatinFontFallback(const std::string& text,
                                    const std::string& fallbackFont,
@@ -106,12 +273,17 @@ std::string buildAssFile(const AppConfig& config,
     std::ofstream ass_file(ass_path);
     if (!ass_file.is_open()) throw std::runtime_error("Failed to create temporary subtitle file.");
 
+    // Check if translation language is RTL
+    bool translationIsRTL = QuranData::isTranslationRTL(config.translationId);
+
     std::string language_code = LocalizationUtils::getLanguageCode(config);
     std::string localized_surah_name = LocalizationUtils::getLocalizedSurahName(options.surah, language_code);
     std::string localized_surah_label = LocalizationUtils::getLocalizedSurahLabel(language_code);
     std::string localized_surah_text = localized_surah_label + " " + localized_surah_name;
+    // Apply RTL word reversal BEFORE font fallback to avoid breaking ASS tags
+    std::string localized_surah_text_rtl = applyRTLIfNeeded(localized_surah_text, translationIsRTL);
     std::string localized_surah_text_render =
-        applyLatinFontFallback(localized_surah_text,
+        applyLatinFontFallback(localized_surah_text_rtl,
                                config.translationFallbackFontFamily,
                                config.translationFont.family);
 
@@ -182,8 +354,10 @@ std::string buildAssFile(const AppConfig& config,
         const auto& info = layout_results[idx];
 
         int arabic_size = info.baseArabicSize;
+        // Apply RTL word reversal BEFORE font fallback to avoid breaking ASS tags
+        std::string translation_rtl = applyRTLIfNeeded(verse.translation, translationIsRTL);
         std::string translation_rendered = applyLatinFontFallback(
-            verse.translation, config.translationFallbackFontFamily, config.translationFont.family);
+            translation_rtl, config.translationFallbackFontFamily, config.translationFont.family);
         int translation_size = info.baseTranslationSize;
 
         double max_total_height = config.height * 0.8;

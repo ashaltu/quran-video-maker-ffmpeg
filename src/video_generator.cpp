@@ -323,16 +323,21 @@ void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfi
         std::string localized_reciter_name = LocalizationUtils::getLocalizedReciterName(config.reciterId, language_code);
         std::string localized_surah_number = LocalizationUtils::getLocalizedNumber(options.surah, language_code);
 
-        auto with_fallback = [&](const std::string& text) {
+        // Check if translation is RTL for proper text rendering
+        bool isRTL = QuranData::isTranslationRTL(config.translationId);
+
+        // Apply RTL reversal first, then font fallback
+        auto with_rtl_and_fallback = [&](const std::string& text) {
+            std::string rtl_text = SubtitleBuilder::applyRTLIfNeeded(text, isRTL);
             return SubtitleBuilder::applyLatinFontFallback(
-                text,
+                rtl_text,
                 config.translationFallbackFontFamily,
                 config.translationFont.family);
         };
-        std::string rendered_label = with_fallback(localized_surah_label);
-        std::string rendered_surah_name = with_fallback(localized_surah_name);
-        std::string rendered_reciter_name = with_fallback(localized_reciter_name);
-        std::string rendered_surah_number = with_fallback(localized_surah_number);
+        std::string rendered_label = with_rtl_and_fallback(localized_surah_label);
+        std::string rendered_surah_name = with_rtl_and_fallback(localized_surah_name);
+        std::string rendered_reciter_name = with_rtl_and_fallback(localized_reciter_name);
+        std::string rendered_surah_number = with_rtl_and_fallback(localized_surah_number);
 
         std::vector<std::string> colors = config.thumbnailColors;
         if (colors.empty()) {
