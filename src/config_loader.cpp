@@ -8,10 +8,42 @@
 #include <map>
 #include <algorithm>
 
+#ifdef _WIN32
+#include <windows.h>
+#elif __APPLE__
+#include <mach-o/dyld.h>
+#else
+#include <unistd.h>
+#include <limits.h>
+#endif
+
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
 namespace {
+
+fs::path getExecutablePath() {
+#ifdef _WIN32
+    char path[MAX_PATH];
+    GetModuleFileNameA(NULL, path, MAX_PATH);
+    return fs::path(path);
+#elif __APPLE__
+    char path[1024];
+    uint32_t size = sizeof(path);
+    if (_NSGetExecutablePath(path, &size) == 0) {
+        return fs::canonical(fs::path(path));
+    }
+    return fs::path();
+#else
+    char path[PATH_MAX];
+    ssize_t count = readlink("/proc/self/exe", path, PATH_MAX);
+    if (count != -1) {
+        return fs::canonical(fs::path(std::string(path, count)));
+    }
+    return fs::path();
+#endif
+}
+
 struct QualityProfileSettings {
     std::string preset;
     int crf;
@@ -92,9 +124,38 @@ void applyQualityProfile(AppConfig& cfg,
 }
 
 AppConfig loadConfig(const std::string& path, CLIOptions& options) {
-    std::ifstream f(path);
-    if (!f.is_open()) throw std::runtime_error("Could not open config file: " + path);
+    fs::path configPath = path;
     
+    // Auto-discovery logic
+    if (!options.configPathProvided && !fs::exists(configPath)) {
+        fs::path exeDir = getExecutablePath().parent_path();
+        
+        // 1. Try executable directory
+        fs::path localConfig = exeDir / "config.json";
+        if (fs::exists(localConfig)) {
+            configPath = localConfig;
+        } else {
+            // 2. Try share directory (Homebrew/Linux installation layout)
+            // Expected: <prefix>/bin/quran-video-maker -> <prefix>/share/quran-video-maker/config.json
+            fs::path shareConfig = exeDir.parent_path() / "share" / "quran-video-maker" / "config.json";
+            if (fs::exists(shareConfig)) {
+                configPath = shareConfig;
+            }
+        }
+    }
+
+    std::ifstream f(configPath);
+    if (!f.is_open()) throw std::runtime_error("Could not open config file: " + configPath.string());
+    
+    // Resolve assets relative to config file location
+    fs::path configDir = fs::absolute(configPath).parent_path();
+    auto resolvePath = [&](std::string p) {
+        if (p.empty()) return p;
+        fs::path fp = p;
+        if (fp.is_absolute()) return fp.string();
+        return (configDir / fp).string();
+    };
+
     json data = json::parse(f);
     AppConfig cfg;
 
@@ -118,12 +179,46 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     
     // Visual styling
     cfg.overlayColor = data.value("overlayColor", "0x000000@0.5");
-    cfg.assetFolderPath = data.value("assetFolderPath", "assets");
-    cfg.assetBgVideo = cfg.assetFolderPath + "/" + data.value("assetBgVideo", QuranData::defaultBackgroundVideo);
+    cfg.assetFolderPath = resolvePath(data.value("assetFolderPath", "assets"));
+    cfg.assetBgVideo = resolvePath(data.value("assetBgVideo", QuranData::defaultBackgroundVideo));
+    
+    // Fix legacy config format where assetBgVideo might be relative to assetFolderPath or root
+    // If resolved assetBgVideo doesn't exist, but resolving it against assetFolderPath works, use that.
+    if (!fs::exists(cfg.assetBgVideo)) {
+        fs::path bgRel = data.value("assetBgVideo", QuranData::defaultBackgroundVideo);
+        if (bgRel.is_relative()) {
+             // Try relative to assetFolderPath
+             fs::path try1 = fs::path(cfg.assetFolderPath) / bgRel.filename(); 
+             if (fs::exists(try1)) {
+                 cfg.assetBgVideo = try1.string();
+             }
+        }
+    }
 
     // Font configuration
     cfg.arabicFont.family = data["arabicFont"].value("family", "KFGQPC HAFS Uthmanic Script");
-    cfg.arabicFont.file = cfg.assetFolderPath + "/" + data["arabicFont"].value("file", QuranData::defaultArabicFont);
+    // Logic for font paths: config might just say "fonts/File.ttf".
+    // We resolve it against configDir. 
+    // Or if it says "File.ttf", we might expect it in assetFolderPath/fonts/
+    
+    auto resolveFont = [&](std::string fontFile, std::string defaultFile) -> std::string {
+        if (fontFile.empty()) fontFile = defaultFile;
+        fs::path fp = fontFile;
+        if (fp.is_absolute()) return fp.string();
+        
+        // Try direct resolve against config dir
+        if (fs::exists(configDir / fp)) return (configDir / fp).string();
+        
+        // Try inside assetFolderPath/fonts
+        if (fs::exists(fs::path(cfg.assetFolderPath) / "fonts" / fp.filename())) {
+            return (fs::path(cfg.assetFolderPath) / "fonts" / fp.filename()).string();
+        }
+        
+        // Fallback to simple resolve
+        return resolvePath(fontFile);
+    };
+
+    cfg.arabicFont.file = resolveFont(data["arabicFont"].value("file", ""), QuranData::defaultArabicFont);
     cfg.arabicFont.size = data["arabicFont"].value("size", 100);
     cfg.arabicFont.color = data["arabicFont"].value("color", "FFFFFF");
 
@@ -146,14 +241,14 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
         data.value("translationFallbackFontFamily", QuranData::defaultTranslationFontFamily);
     
     // Auto-select translation font based on translation ID if overridden config not provided
-    if (translationFontFileOverridden) {
-        cfg.translationFont.file = cfg.assetFolderPath + "/" + translationFontConfig.value("file", QuranData::defaultTranslationFont);
-    } else {
-        cfg.translationFont.file = cfg.assetFolderPath + "/" + QuranData::getTranslationFont(cfg.translationId);
+    std::string transFontFile = translationFontConfig.value("file", "");
+    if (!translationFontFileOverridden) {
+        transFontFile = QuranData::getTranslationFont(cfg.translationId);
     }
+    cfg.translationFont.file = resolveFont(transFontFile, QuranData::defaultTranslationFont);
 
     // Data paths
-    cfg.quranWordByWordPath = data.value("quranWordByWordPath", "data/quran/qpc-hafs-word-by-word.json");
+    cfg.quranWordByWordPath = resolvePath(data.value("quranWordByWordPath", "data/quran/qpc-hafs-word-by-word.json"));
 
     // Timing parameters
     cfg.introDuration = data.value("introDuration", 1.0);
@@ -202,7 +297,11 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     if (options.reciterId != -1) cfg.reciterId = options.reciterId;
     if (options.translationId != -1) {
         cfg.translationId = options.translationId;
-        cfg.translationFont.file = cfg.assetFolderPath + "/" + QuranData::getTranslationFont(cfg.translationId);
+        // Re-resolve if ID changed via CLI and wasn't overridden in config
+        if (!translationFontFileOverridden) {
+             std::string f = QuranData::getTranslationFont(cfg.translationId);
+             cfg.translationFont.file = resolveFont(f, QuranData::defaultTranslationFont);
+        }
         if (!translationFontFamilyOverridden) {
             cfg.translationFont.family = QuranData::getTranslationFontFamily(cfg.translationId);
         }

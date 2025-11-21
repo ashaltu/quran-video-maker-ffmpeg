@@ -110,6 +110,7 @@ struct CLIOptions {
     int from;
     int to;
     std::string configPath = "./config.json";
+    bool configPathProvided = false;
     int reciterId = -1;
     int translationId = -1;
     std::string output = "";
