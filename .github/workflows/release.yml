@@ -110,7 +110,9 @@ jobs:
     - name: Update Homebrew formula
       run: |
         FORM="homebrew/Formula/qvm-ffmpeg.rb"
-        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/archive/refs/tags/${{ github.event.inputs.version }}.tar.gz"
+        VERSION="${{ github.event.inputs.version }}"
+        # Use release download URL (includes extracted data/)
+        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${VERSION}/qvm-ffmpeg-${VERSION}.tar.gz"
 
         sed -i.bak \
           -e "s|url \".*\"|url \"${URL}\"|" \
@@ -119,8 +121,8 @@ jobs:
 
         rm "$FORM.bak"
         git add "$FORM"
-        git commit -m "Release ${{ github.event.inputs.version }}"
-        git tag ${{ github.event.inputs.version }}
+        git commit -m "Release ${VERSION}"
+        git tag ${VERSION}
         git push --follow-tags
 
     - name: Publish GitHub Release

@@ -184,6 +184,23 @@ namespace QuranData {
         {4, "urd"}
     };
 
+    // RTL (Right-to-Left) languages - Arabic is always RTL, these specify RTL translations
+    inline const std::map<int, bool> translationIsRTL = {
+        {1, false},  // English - LTR
+        {2, false},  // Oromo - LTR
+        {3, false},  // Amharic - LTR
+        {4, true}    // Urdu - RTL
+    };
+
+    // Helper function to check if translation is RTL
+    inline bool isTranslationRTL(int translationId) {
+        auto it = translationIsRTL.find(translationId);
+        if (it != translationIsRTL.end()) {
+            return it->second;
+        }
+        return false;
+    }
+
     // Here as fallback
     inline const std::map<int, std::string> surahNames = {
         {1, "Al-Fatiha"},

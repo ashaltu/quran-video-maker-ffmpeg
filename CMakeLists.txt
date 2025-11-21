@@ -6,6 +6,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
+# Prevent FetchContent dependencies from being installed
+set(CXXOPTS_BUILD_EXAMPLES OFF CACHE BOOL "")
+set(CXXOPTS_BUILD_TESTS OFF CACHE BOOL "")
+set(CXXOPTS_ENABLE_INSTALL OFF CACHE BOOL "")
+
+set(CPR_ENABLE_INSTALL OFF CACHE BOOL "")
+set(CPR_USE_SYSTEM_CURL ON CACHE BOOL "")  # Use system curl instead of building it
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "")  # Build all libraries as static for easier distribution
+
+set(JSON_BuildTests OFF CACHE BOOL "")
+set(JSON_Install OFF CACHE BOOL "")
+
 FetchContent_Declare(
   cxxopts
   GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
@@ -42,7 +54,8 @@ pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 pkg_check_modules(HARFBUZZ REQUIRED IMPORTED_TARGET harfbuzz)
 
 
-add_library(qvm_lib
+# Use static library for easier distribution
+add_library(qvm_lib STATIC
     src/api.cpp src/api.h
     src/video_generator.cpp src/video_generator.h
     src/timing_parser.cpp src/timing_parser.h
@@ -89,4 +102,25 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_
     target_link_libraries(quran-video-maker PRIVATE stdc++fs)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.0)
     target_link_libraries(quran-video-maker PRIVATE stdc++fs)
+endif()
+
+# Installation rules
+include(GNUInstallDirs)
+
+# Install the main executable
+install(TARGETS quran-video-maker
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+# Install default configuration file
+install(FILES config.json
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/qvm-ffmpeg)
+
+# Install assets directory (fonts, videos, etc.)
+install(DIRECTORY assets/
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/qvm-ffmpeg/assets)
+
+# Install data directory (if present - typically extracted from data.tar)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/data")
+    install(DIRECTORY data/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/qvm-ffmpeg/data)
 endif()

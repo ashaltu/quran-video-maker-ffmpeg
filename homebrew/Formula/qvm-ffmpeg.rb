@@ -1,21 +1,43 @@
 class QvmFfmpeg < Formula
   desc "Quran Video Maker (FFmpeg)"
   homepage "https://github.com/ashaltu/quran-video-maker-ffmpeg"
-  url "https://github.com/ashaltu/quran-video-maker-ffmpeg/archive/refs/tags/v0.0.0.tar.gz"
+  # Release tarball URL - includes extracted data/ directory
+  url "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/v0.0.0/qvm-ffmpeg-v0.0.0.tar.gz"
   sha256 "0"
 
   depends_on "cmake" => :build
   depends_on "pkg-config" => :build
+  depends_on "curl"
   depends_on "ffmpeg"
   depends_on "freetype"
   depends_on "harfbuzz"
-  depends_on "cpr"
-  depends_on "nlohmann-json"
-  depends_on "cxxopts"
 
   def install
+    # Extract data.tar if it exists (fallback for older releases)
+    system "tar", "-xf", "data.tar" if File.exist?("data.tar")
+
+    # Build and install
     system "cmake", "-S", ".", "-B", "build", *std_cmake_args
     system "cmake", "--build", "build"
     system "cmake", "--install", "build"
+  end
+
+  def caveats
+    <<~EOS
+      To use qvm-ffmpeg, you need to specify the config and data paths:
+
+        quran-video-maker --config #{share}/qvm-ffmpeg/config.json <surah> <from> <to>
+
+      Or copy the config to your working directory and modify paths:
+
+        cp #{share}/qvm-ffmpeg/config.json ./config.json
+
+      Then update assetFolderPath and quranWordByWordPath in config.json
+      to point to #{share}/qvm-ffmpeg/assets and #{share}/qvm-ffmpeg/data
+    EOS
+  end
+
+  test do
+    system "#{bin}/quran-video-maker", "--help"
   end
 end
