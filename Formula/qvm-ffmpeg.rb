@@ -1,8 +1,8 @@
 class QvmFfmpeg < Formula
   desc "Quran Video Maker (FFmpeg)"
   homepage "https://github.com/ashaltu/quran-video-maker-ffmpeg"
-  url "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/v0.0.0-test4-g/qvm-ffmpeg-v0.0.0-test4-g.tar.gz"
-  sha256 "e25421e7b3376a35a1e1531c6940627f3a536e808a0a4d2730e3fe3edcad158c"
+  url "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/v0.0.0-test5-g/qvm-ffmpeg-v0.0.0-test5-g.tar.gz"
+  sha256 "8dac9b5be4016170d528563231d7f4d13bf1a0dc13ab795e3ccddcb9f0804787"
 
   depends_on "cmake" => :build
   depends_on "pkg-config" => :build
