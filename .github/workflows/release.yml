@@ -26,7 +26,8 @@ jobs:
         sudo apt-get install -y \
           libavformat-dev libavcodec-dev libavfilter-dev \
           libavutil-dev libswscale-dev \
-          libfreetype6-dev libharfbuzz-dev
+          libfreetype6-dev libharfbuzz-dev \
+          libcurl4-openssl-dev
 
     - name: Configure CMake
       run: cmake -B $BUILD_DIR -DCMAKE_BUILD_TYPE=$BUILD_TYPE -S .
@@ -56,7 +57,7 @@ jobs:
     - name: Install FFmpeg dependencies
       run: |
         brew update
-        brew install ffmpeg freetype harfbuzz
+        brew install ffmpeg freetype harfbuzz curl
 
     - name: Export FFmpeg pkgconfig paths (macOS)
       run: |
