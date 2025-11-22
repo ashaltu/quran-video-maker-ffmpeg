@@ -10,7 +10,10 @@ on:
 env:
   BUILD_DIR: build
   BUILD_TYPE: Release
-  CCACHE_CACHE_VERSION: v1
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_COMPRESS: true
+  CCACHE_COMPRESSLEVEL: 6
+  CCACHE_MAXSIZE: 400M
 
 jobs:
   build-linux:
@@ -30,27 +33,33 @@ jobs:
           libfreetype6-dev libharfbuzz-dev \
           ccache
 
-    - name: Prepare ccache directory
-      run: mkdir -p ~/.ccache
-
     - name: Setup ccache
       uses: actions/cache@v4
       with:
-        path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ env.CCACHE_CACHE_VERSION }}
+        path: .ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.h') }}
         restore-keys: |
           ${{ runner.os }}-ccache-
 
+    - name: Configure ccache
+      run: |
+        ccache --set-config=max_size=400M
+        ccache --set-config=compression=true
+        ccache --zero-stats
+
     - name: Configure CMake
-      run: >
-        cmake -B $BUILD_DIR
-        -DCMAKE_BUILD_TYPE=$BUILD_TYPE
-        -DCMAKE_C_COMPILER_LAUNCHER=ccache
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-        -S ${{ github.workspace }}
+      run: |
+        cmake -B $BUILD_DIR \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          -S ${{ github.workspace }}
 
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
+
+    - name: Show ccache statistics
+      run: ccache --show-stats
 
     - name: Extract test data
       run: tar -xf data.tar
@@ -59,7 +68,6 @@ jobs:
       run: |
         cd "$BUILD_DIR"
         ctest --build-config "$BUILD_TYPE" --rerun-failed --output-on-failure
-
 
   build-macos:
     runs-on: macos-latest
@@ -74,16 +82,19 @@ jobs:
         brew update
         brew install ffmpeg freetype harfbuzz ccache
 
-    - name: Prepare ccache directory
-      run: mkdir -p ~/.ccache
-
     - name: Setup ccache
       uses: actions/cache@v4
       with:
-        path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ env.CCACHE_CACHE_VERSION }}
+        path: .ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.h') }}
         restore-keys: |
           ${{ runner.os }}-ccache-
+
+    - name: Configure ccache
+      run: |
+        ccache --set-config=max_size=400M
+        ccache --set-config=compression=true
+        ccache --zero-stats
 
     - name: Export FFmpeg pkgconfig paths (macOS)
       run: |
@@ -91,15 +102,18 @@ jobs:
         echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
     - name: Configure CMake
-      run: >
-        cmake -B $BUILD_DIR
-        -DCMAKE_BUILD_TYPE=$BUILD_TYPE
-        -DCMAKE_C_COMPILER_LAUNCHER=ccache
-        -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-        -S ${{ github.workspace }}
+      run: |
+        cmake -B $BUILD_DIR \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+          -S ${{ github.workspace }}
 
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
+
+    - name: Show ccache statistics
+      run: ccache --show-stats
 
     - name: Extract test data
       run: tar -xf data.tar

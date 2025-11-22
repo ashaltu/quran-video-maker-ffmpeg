@@ -10,7 +10,10 @@ on:
 env:
   BUILD_DIR: build
   BUILD_TYPE: Release
-  CCACHE_CACHE_VERSION: v1
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+  CCACHE_COMPRESS: true
+  CCACHE_COMPRESSLEVEL: 6
+  CCACHE_MAXSIZE: 400M
 
 jobs:
   build-linux:
@@ -30,16 +33,19 @@ jobs:
           libfreetype6-dev libharfbuzz-dev \
           ccache
 
-    - name: Prepare ccache directory
-      run: mkdir -p ~/.ccache
-
     - name: Setup ccache
       uses: actions/cache@v4
       with:
-        path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ env.CCACHE_CACHE_VERSION }}
+        path: .ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.h') }}
         restore-keys: |
           ${{ runner.os }}-ccache-
+
+    - name: Configure ccache
+      run: |
+        ccache --set-config=max_size=400M
+        ccache --set-config=compression=true
+        ccache --zero-stats
 
     - name: Configure CMake
       run: |
@@ -51,6 +57,9 @@ jobs:
 
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
+
+    - name: Show ccache statistics
+      run: ccache --show-stats
 
     - name: Extract test data
       run: |
@@ -76,16 +85,19 @@ jobs:
         brew update
         brew install ffmpeg freetype harfbuzz ccache
 
-    - name: Prepare ccache directory
-      run: mkdir -p ~/.ccache
-
     - name: Setup ccache
       uses: actions/cache@v4
       with:
-        path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ env.CCACHE_CACHE_VERSION }}
+        path: .ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.h') }}
         restore-keys: |
           ${{ runner.os }}-ccache-
+
+    - name: Configure ccache
+      run: |
+        ccache --set-config=max_size=400M
+        ccache --set-config=compression=true
+        ccache --zero-stats
 
     - name: Export FFmpeg pkgconfig paths (macOS)
       run: |
@@ -102,6 +114,9 @@ jobs:
 
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
+
+    - name: Show ccache statistics
+      run: ccache --show-stats
 
     - name: Extract test data
       run: |
@@ -143,26 +158,58 @@ jobs:
       id: sha
       run: echo "sha256=$(shasum -a 256 qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
 
-    - name: Update Homebrew formula
+    - name: Create Git tag
       run: |
-        FORM="Formula/qvm-ffmpeg.rb"
-        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${{ github.event.inputs.version }}/qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz"
-
-        sed -i.bak \
-          -e "s|url \".*\"|url \"${URL}\"|" \
-          -e "s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.sha256 }}\"|" \
-          "$FORM"
-
-        rm "$FORM.bak"
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add "$FORM"
-        git commit -m "Release ${{ github.event.inputs.version }}"
         git tag ${{ github.event.inputs.version }}
-        git push --follow-tags
+        git push origin ${{ github.event.inputs.version }}
 
     - name: Publish GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.event.inputs.version }}
         files: qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz
+
+  update-homebrew-tap:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout homebrew-tap repository
+      uses: actions/checkout@v4
+      with:
+        repository: ashaltu/homebrew-tap
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download release tarball to compute SHA256
+      run: |
+        curl -L -o qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz \
+          https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${{ github.event.inputs.version }}/qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz
+
+    - name: Compute SHA256
+      id: sha
+      run: echo "sha256=$(shasum -a 256 qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+    - name: Update Homebrew formula
+      run: |
+        FORMULA="Formula/qvm.rb"
+        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${{ github.event.inputs.version }}/qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz"
+
+        sed -i.bak \
+          -e "s|url \".*\"|url \"${URL}\"|" \
+          -e "s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.sha256 }}\"|" \
+          -e "s|license \".*\"|license \"GPL-3.0\"|" \
+          "$FORMULA"
+
+        rm "$FORMULA.bak"
+
+    - name: Commit and push changes
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add Formula/qvm.rb
+        git commit -m "Update qvm to ${{ github.event.inputs.version }}"
+        git push
