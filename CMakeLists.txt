@@ -6,26 +6,38 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-FetchContent_Declare(
-  cxxopts
-  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-  GIT_TAG        v3.2.0
-)
-FetchContent_MakeAvailable(cxxopts)
+# Dependency: cxxopts
+find_package(cxxopts CONFIG)
+if(NOT cxxopts_FOUND)
+    FetchContent_Declare(
+      cxxopts
+      GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+      GIT_TAG        v3.2.0
+    )
+    FetchContent_MakeAvailable(cxxopts)
+endif()
 
-FetchContent_Declare(
-  cpr
-  GIT_REPOSITORY https://github.com/libcpr/cpr.git
-  GIT_TAG        1.10.5
-)
-FetchContent_MakeAvailable(cpr)
+# Dependency: cpr
+find_package(cpr CONFIG)
+if(NOT cpr_FOUND)
+    FetchContent_Declare(
+      cpr
+      GIT_REPOSITORY https://github.com/libcpr/cpr.git
+      GIT_TAG        1.10.5
+    )
+    FetchContent_MakeAvailable(cpr)
+endif()
 
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG        v3.11.3
-)
-FetchContent_MakeAvailable(nlohmann_json)
+# Dependency: nlohmann_json
+find_package(nlohmann_json CONFIG)
+if(NOT nlohmann_json_FOUND)
+    FetchContent_Declare(
+      nlohmann_json
+      GIT_REPOSITORY https://github.com/nlohmann/json.git
+      GIT_TAG        v3.11.3
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
 
 # Find required system libraries
 find_package(PkgConfig REQUIRED)
@@ -89,4 +101,33 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_
     target_link_libraries(quran-video-maker PRIVATE stdc++fs)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.0)
     target_link_libraries(quran-video-maker PRIVATE stdc++fs)
+endif()
+
+# Installation rules
+include(GNUInstallDirs)
+
+install(TARGETS quran-video-maker
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(FILES config.json
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/quran-video-maker
+)
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/data.tar")
+    install(FILES data.tar
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/quran-video-maker
+    )
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/data")
+    install(DIRECTORY data
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/quran-video-maker
+    )
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+    install(DIRECTORY assets
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/quran-video-maker
+    )
 endif()

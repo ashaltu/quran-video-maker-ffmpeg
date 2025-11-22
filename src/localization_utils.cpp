@@ -3,6 +3,10 @@
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <algorithm>
+#include <sstream>
+#include <vector>
+#include <cctype>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -87,6 +91,94 @@ std::string getLocalizedNumber(int value, const std::string& lang_code) {
         localized = std::to_string(value);
     }
     return localized;
+}
+
+std::string reverseWords(const std::string& text) {
+    std::istringstream iss(text);
+    std::vector<std::string> words;
+    std::string word;
+    
+    // Helper to detect if a char is punctuation we want to move
+    auto is_punct = [](char c) {
+        static const std::string punct = "()[]{}\"\'.,!?-;:<>";
+        return punct.find(c) != std::string::npos;
+    };
+
+    while (iss >> word) {
+        // Split word into: prefix_punct + core + suffix_punct
+        // We want to transform it to: suffix_punct + core + prefix_punct
+        // Because in RTL, the "Start" (Right) punctuation should be on the Right of the word.
+        // When we reverse word order for LTR renderer, the Right of the word becomes the "End" of the string.
+        // So Prefix (Start) -> End (Suffix). Suffix (End) -> Start (Prefix).
+
+        if (word.empty()) continue;
+
+        std::string prefix;
+        std::string suffix;
+        std::string core = word;
+
+        // Extract prefix
+        size_t prefix_len = 0;
+        while (prefix_len < core.size() && is_punct(core[prefix_len])) {
+            prefix_len++;
+        }
+        if (prefix_len > 0) {
+            prefix = core.substr(0, prefix_len);
+            core = core.substr(prefix_len);
+        }
+
+        // Extract suffix (if any core remains)
+        if (!core.empty()) {
+            size_t suffix_len = 0;
+            while (suffix_len < core.size() && is_punct(core[core.size() - 1 - suffix_len])) {
+                suffix_len++;
+            }
+            if (suffix_len > 0) {
+                suffix = core.substr(core.size() - suffix_len);
+                core = core.substr(0, core.size() - suffix_len);
+            }
+        } else {
+            // If word was all punctuation, prefix took it all.
+            // e.g. "..." -> Prefix "...", Core "", Suffix "".
+            // We can just leave it as is, or swap?
+            // "..." -> "..." (Symmetric).
+            // "(" -> "(".
+            // If we have just "(", it is prefix. 
+            // Swap -> Suffix "(". Core "". Prefix "".
+            // Result "(" (same).
+        }
+        
+        // Reconstruct: Suffix + Core + Prefix
+        words.push_back(suffix + core + prefix);
+    }
+    
+    if (words.empty()) return text;
+    std::reverse(words.begin(), words.end());
+    
+    std::string result;
+    for (size_t i = 0; i < words.size(); ++i) {
+        // Mirror characters for RTL
+        std::string& w = words[i];
+        for (char& c : w) {
+            switch(c) {
+                case '(': c = ')'; break;
+                case ')': c = '('; break;
+                case '[': c = ']'; break;
+                case ']': c = '['; break;
+                case '{': c = '}'; break;
+                case '}': c = '{'; break;
+                case '<': c = '>'; break;
+                case '>': c = '<'; break;
+                default: break;
+            }
+        }
+
+        result += w;
+        if (i < words.size() - 1) {
+            result += " ";
+        }
+    }
+    return result;
 }
 
 } // namespace LocalizationUtils

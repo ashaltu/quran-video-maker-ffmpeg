@@ -9,4 +9,5 @@ namespace LocalizationUtils {
     std::string getLocalizedReciterName(int reciterId, const std::string& lang_code);
     std::string getLocalizedSurahLabel(const std::string& lang_code);
     std::string getLocalizedNumber(int value, const std::string& lang_code);
+    std::string reverseWords(const std::string& text);
 }

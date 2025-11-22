@@ -73,6 +73,7 @@ int main(int argc, char* argv[]) {
     options.from = result["from"].as<int>();
     options.to = result["to"].as<int>();
     options.configPath = result["config"].as<std::string>();
+    options.configPathProvided = result.count("config") > 0;
     if (result.count("reciter")) options.reciterId = result["reciter"].as<int>();
     if (result.count("translation")) options.translationId = result["translation"].as<int>();
     if (result.count("mode")) options.recitationMode = result["mode"].as<std::string>();
@@ -152,7 +153,11 @@ int main(int argc, char* argv[]) {
             std::string theme = result["bg-theme"].as<std::string>();
             auto it = QuranData::backgroundThemes.find(theme);
             if (it != QuranData::backgroundThemes.end()) {
-                config.assetBgVideo = it->second;
+                fs::path themePath = it->second;
+                if (!themePath.is_absolute()) {
+                    themePath = fs::path(config.assetFolderPath) / themePath;
+                }
+                config.assetBgVideo = themePath.string();
             } else {
                 std::cerr << "Warning: Unknown theme '" << theme << "', using default." << std::endl;
             }
