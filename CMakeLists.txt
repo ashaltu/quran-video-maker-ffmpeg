@@ -69,7 +69,7 @@ add_library(qvm_lib
     src/types.h
 )
 
-add_executable(quran-video-maker src/main.cpp)
+add_executable(qvm src/main.cpp)
 
 target_include_directories(qvm_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -89,7 +89,7 @@ target_link_libraries(qvm_lib PUBLIC
     cxxopts::cxxopts
 )
 
-target_link_libraries(quran-video-maker PRIVATE qvm_lib)
+target_link_libraries(qvm PRIVATE qvm_lib)
 
 add_executable(unit_tests tests/unit_tests.cpp)
 target_link_libraries(unit_tests PRIVATE qvm_lib)
@@ -98,15 +98,15 @@ enable_testing()
 add_test(NAME unit COMMAND unit_tests WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0)
-    target_link_libraries(quran-video-maker PRIVATE stdc++fs)
+    target_link_libraries(qvm PRIVATE stdc++fs)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.0)
-    target_link_libraries(quran-video-maker PRIVATE stdc++fs)
+    target_link_libraries(qvm PRIVATE stdc++fs)
 endif()
 
 # Installation rules
 include(GNUInstallDirs)
 
-install(TARGETS quran-video-maker
+install(TARGETS qvm
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 

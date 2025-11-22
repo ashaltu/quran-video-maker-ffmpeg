@@ -20,7 +20,7 @@ jobs:
       with:
         lfs: true
 
-    - name: Install FFmpeg dev packages
+    - name: Install build deps
       run: |
         sudo apt-get update
         sudo apt-get install -y \
@@ -28,11 +28,21 @@ jobs:
           libavutil-dev libswscale-dev \
           libfreetype6-dev libharfbuzz-dev
 
+    - name: Cache CMake build and dependencies
+      uses: actions/cache@v4
+      with:
+        path: build
+        key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('**/*.cpp', '**/*.h') }}
+        restore-keys: |
+          ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-
+          ${{ runner.os }}-cmake-
+
     - name: Configure CMake
-      run: >
-        cmake -B $BUILD_DIR
-        -DCMAKE_BUILD_TYPE=$BUILD_TYPE
-        -S ${{ github.workspace }}
+      run: |
+        cmake -B $BUILD_DIR \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DFETCHCONTENT_QUIET=OFF \
+          -S ${{ github.workspace }}
 
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
@@ -44,7 +54,6 @@ jobs:
       run: |
         cd "$BUILD_DIR"
         ctest --build-config "$BUILD_TYPE" --rerun-failed --output-on-failure
-
 
   build-macos:
     runs-on: macos-latest
@@ -59,16 +68,26 @@ jobs:
         brew update
         brew install ffmpeg freetype harfbuzz
 
+    - name: Cache CMake build and dependencies
+      uses: actions/cache@v4
+      with:
+        path: build
+        key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('**/*.cpp', '**/*.h') }}
+        restore-keys: |
+          ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-
+          ${{ runner.os }}-cmake-
+
     - name: Export FFmpeg pkgconfig paths (macOS)
       run: |
         export PKG_CONFIG_PATH="/opt/homebrew/opt/ffmpeg/lib/pkgconfig:/usr/local/opt/ffmpeg/lib/pkgconfig:$PKG_CONFIG_PATH"
         echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
     - name: Configure CMake
-      run: >
-        cmake -B $BUILD_DIR
-        -DCMAKE_BUILD_TYPE=$BUILD_TYPE
-        -S ${{ github.workspace }}
+      run: |
+        cmake -B $BUILD_DIR \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DFETCHCONTENT_QUIET=OFF \
+          -S ${{ github.workspace }}
 
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
