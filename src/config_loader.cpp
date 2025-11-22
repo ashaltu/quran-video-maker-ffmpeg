@@ -180,20 +180,24 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     // Visual styling
     cfg.overlayColor = data.value("overlayColor", "0x000000@0.5");
     cfg.assetFolderPath = resolvePath(data.value("assetFolderPath", "assets"));
-    cfg.assetBgVideo = resolvePath(data.value("assetBgVideo", QuranData::defaultBackgroundVideo));
-    
-    // Fix legacy config format where assetBgVideo might be relative to assetFolderPath or root
-    // If resolved assetBgVideo doesn't exist, but resolving it against assetFolderPath works, use that.
-    if (!fs::exists(cfg.assetBgVideo)) {
-        fs::path bgRel = data.value("assetBgVideo", QuranData::defaultBackgroundVideo);
-        if (bgRel.is_relative()) {
-             // Try relative to assetFolderPath
-             fs::path try1 = fs::path(cfg.assetFolderPath) / bgRel.filename(); 
-             if (fs::exists(try1)) {
-                 cfg.assetBgVideo = try1.string();
-             }
-        }
-    }
+
+    auto resolveAssetPath = [&](const std::string& assetPath) -> std::string {
+        if (assetPath.empty()) return assetPath;
+        fs::path fp = assetPath;
+        if (fp.is_absolute()) return fp.string();
+
+        fs::path configRelative = configDir / fp;
+        if (fs::exists(configRelative)) return configRelative.string();
+
+        fs::path assetRelative = fs::path(cfg.assetFolderPath) / fp;
+        if (fs::exists(assetRelative)) return assetRelative.string();
+
+        // Fall back to asset folder path even if it doesn't exist yet (validate later).
+        return assetRelative.string();
+    };
+
+    std::string bgVideoSetting = data.value("assetBgVideo", QuranData::defaultBackgroundVideo);
+    cfg.assetBgVideo = resolveAssetPath(bgVideoSetting);
 
     // Font configuration
     cfg.arabicFont.family = data["arabicFont"].value("family", "KFGQPC HAFS Uthmanic Script");
