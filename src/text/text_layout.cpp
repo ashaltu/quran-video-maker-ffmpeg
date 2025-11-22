@@ -1,4 +1,5 @@
 #include "text/text_layout.h"
+#include "localization_utils.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -115,8 +116,10 @@ std::vector<std::string> split_ass_lines(const std::string& text) {
     return lines;
 }
 
-std::string wrap_single_line(const std::string& line, FontContext& ctx, double max_width) {
-    if (line.empty() || measure_text_width(ctx, line) <= max_width) return line;
+std::string wrap_single_line(const std::string& line, FontContext& ctx, double max_width, bool isRtl) {
+    if (line.empty() || measure_text_width(ctx, line) <= max_width) {
+        return isRtl ? LocalizationUtils::reverseWords(line) : line;
+    }
 
     std::istringstream iss(line);
     std::string word;
@@ -124,7 +127,7 @@ std::string wrap_single_line(const std::string& line, FontContext& ctx, double m
     std::vector<std::string> wrapped_lines;
     auto flush_current = [&]() {
         if (!current.empty()) {
-            wrapped_lines.push_back(current);
+            wrapped_lines.push_back(isRtl ? LocalizationUtils::reverseWords(current) : current);
             current.clear();
         }
     };
@@ -148,13 +151,16 @@ std::string wrap_single_line(const std::string& line, FontContext& ctx, double m
     return rebuilt.empty() ? line : rebuilt;
 }
 
-std::string wrap_if_needed(const std::string& text, FontContext& ctx, double max_width) {
+std::string wrap_if_needed(const std::string& text, FontContext& ctx, double max_width, bool isRtl) {
     auto lines = split_ass_lines(text);
     bool applied = false;
     for (auto& line : lines) {
         double width = measure_text_width(ctx, line);
         if (width > max_width) {
-            line = wrap_single_line(line, ctx, max_width);
+            line = wrap_single_line(line, ctx, max_width, isRtl);
+            applied = true;
+        } else if (isRtl) {
+            line = LocalizationUtils::reverseWords(line);
             applied = true;
         }
     }
@@ -195,7 +201,7 @@ LayoutResult Engine::layoutVerse(const VerseData& verse) const {
     int maxArabicSize = std::max(1, static_cast<int>(layout.baseArabicSize * layout.arabicGrowthFactor));
 
     FontContext arabic_ctx = init_font(config_.arabicFont.file, maxArabicSize);
-    layout.wrappedArabic = wrap_if_needed(verse.text, arabic_ctx, arabicWrapWidth_);
+    layout.wrappedArabic = wrap_if_needed(verse.text, arabic_ctx, arabicWrapWidth_, false);
     free_font(arabic_ctx);
 
     layout.baseTranslationSize = adaptive_font_size_translation(verse.translation, config_.translationFont.size);
@@ -204,7 +210,7 @@ LayoutResult Engine::layoutVerse(const VerseData& verse) const {
         std::max(1, static_cast<int>(layout.baseTranslationSize * layout.translationGrowthFactor));
 
     FontContext translation_ctx = init_font(config_.translationFont.file, maxTranslationSize);
-    layout.wrappedTranslation = wrap_if_needed(verse.translation, translation_ctx, translationWrapWidth_);
+    layout.wrappedTranslation = wrap_if_needed(verse.translation, translation_ctx, translationWrapWidth_, config_.translationIsRtl);
     free_font(translation_ctx);
 
     return layout;

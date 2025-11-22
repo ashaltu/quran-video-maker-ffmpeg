@@ -83,12 +83,14 @@ jobs:
   release:
     needs: [build-linux, build-macos]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
       with:
         lfs: true
-        token: ${{ secrets.ACTIONS_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Extract data for release packaging
       run: |
@@ -109,8 +111,8 @@ jobs:
 
     - name: Update Homebrew formula
       run: |
-        FORM="homebrew/Formula/qvm-ffmpeg.rb"
-        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/archive/refs/tags/${{ github.event.inputs.version }}.tar.gz"
+        FORM="Formula/qvm-ffmpeg.rb"
+        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${{ github.event.inputs.version }}/qvm-ffmpeg-${{ github.event.inputs.version }}.tar.gz"
 
         sed -i.bak \
           -e "s|url \".*\"|url \"${URL}\"|" \
@@ -118,6 +120,8 @@ jobs:
           "$FORM"
 
         rm "$FORM.bak"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
         git add "$FORM"
         git commit -m "Release ${{ github.event.inputs.version }}"
         git tag ${{ github.event.inputs.version }}

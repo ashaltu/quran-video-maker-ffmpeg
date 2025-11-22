@@ -323,6 +323,13 @@ void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfi
         std::string localized_reciter_name = LocalizationUtils::getLocalizedReciterName(config.reciterId, language_code);
         std::string localized_surah_number = LocalizationUtils::getLocalizedNumber(options.surah, language_code);
 
+        if (config.translationIsRtl) {
+            localized_surah_label = LocalizationUtils::reverseWords(localized_surah_label);
+            localized_surah_name = LocalizationUtils::reverseWords(localized_surah_name);
+            localized_reciter_name = LocalizationUtils::reverseWords(localized_reciter_name);
+            localized_surah_number = LocalizationUtils::reverseWords(localized_surah_number);
+        }
+
         auto with_fallback = [&](const std::string& text) {
             return SubtitleBuilder::applyLatinFontFallback(
                 text,

@@ -73,6 +73,7 @@ int main(int argc, char* argv[]) {
     options.from = result["from"].as<int>();
     options.to = result["to"].as<int>();
     options.configPath = result["config"].as<std::string>();
+    options.configPathProvided = result.count("config") > 0;
     if (result.count("reciter")) options.reciterId = result["reciter"].as<int>();
     if (result.count("translation")) options.translationId = result["translation"].as<int>();
     if (result.count("mode")) options.recitationMode = result["mode"].as<std::string>();

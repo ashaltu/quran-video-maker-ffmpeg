@@ -110,6 +110,11 @@ std::string buildAssFile(const AppConfig& config,
     std::string localized_surah_name = LocalizationUtils::getLocalizedSurahName(options.surah, language_code);
     std::string localized_surah_label = LocalizationUtils::getLocalizedSurahLabel(language_code);
     std::string localized_surah_text = localized_surah_label + " " + localized_surah_name;
+
+    if (config.translationIsRtl) {
+        localized_surah_text = LocalizationUtils::reverseWords(localized_surah_text);
+    }
+
     std::string localized_surah_text_render =
         applyLatinFontFallback(localized_surah_text,
                                config.translationFallbackFontFamily,
@@ -141,6 +146,11 @@ std::string buildAssFile(const AppConfig& config,
 
     std::string range_text = LocalizationUtils::getLocalizedNumber(options.surah, language_code) +
                              " • " + std::to_string(options.from) + "-" + std::to_string(options.to);
+    
+    if (config.translationIsRtl) {
+        range_text = LocalizationUtils::reverseWords(range_text);
+    }
+    
     range_text = applyLatinFontFallback(range_text,
                                         config.translationFallbackFontFamily,
                                         config.translationFont.family);
