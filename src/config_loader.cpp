@@ -167,7 +167,7 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     // Content selection
     cfg.reciterId = data.value("reciterId", 7);
     cfg.translationId = data.value("translationId", 1);
-    cfg.translationIsRtl = data.value("translationIsRtl", false);
+    cfg.translationIsRtl = QuranData::isTranslationRtl(cfg.translationId);
     
     // Recitation mode
     std::string modeStr = data.value("recitationMode", "gapped");
@@ -306,6 +306,7 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
             cfg.translationFont.family = QuranData::getTranslationFontFamily(cfg.translationId);
         }
     }
+    cfg.translationIsRtl = QuranData::isTranslationRtl(cfg.translationId);
     if (!options.recitationMode.empty()) {
         if (options.recitationMode == "gapless") {
             cfg.recitationMode = RecitationMode::GAPLESS;

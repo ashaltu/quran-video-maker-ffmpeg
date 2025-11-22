@@ -24,6 +24,14 @@ namespace QuranData {
         {4, "Jameel Noori Nastaleeq"}
     };
     
+    // Mapping translationId -> RTL flag
+    inline const std::map<int, bool> translationDirectionIsRtl = {
+        {1, false}, // English
+        {2, false}, // Oromo
+        {3, false}, // Amharic
+        {4, true}   // Urdu
+    };
+    
     // Background video themes
     inline const std::map<std::string, std::string> backgroundThemes = {
         {"space", "videos/themes/stars.mp4"},
@@ -325,5 +333,13 @@ namespace QuranData {
             return it->second;
         }
         return "en";
+    }
+
+    inline bool isTranslationRtl(int translationId) {
+        auto it = translationDirectionIsRtl.find(translationId);
+        if (it != translationDirectionIsRtl.end()) {
+            return it->second;
+        }
+        return false;
     }
 }
