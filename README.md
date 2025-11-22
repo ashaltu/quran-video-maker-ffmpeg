@@ -21,7 +21,18 @@
 
 The tool supports both gapped (ayah-by-ayah) and gapless (continuous) workflows. Custom recitations can be supplied via `--custom-audio` and `--custom-timing`.
 
-## Prerequisites
+## Installation
+
+### Install with `brew`
+
+```bash
+brew install ashaltu/tap/qvm
+
+qvm --help
+qvm 1 1 7 # Generates video for the entire Surah Fatiha
+```
+
+### Prerequisites
 
 - **C++ Compiler**: Supporting C++17 or later
 - **CMake**: Version 3.16 or higher
@@ -29,8 +40,6 @@ The tool supports both gapped (ayah-by-ayah) and gapless (continuous) workflows.
 - **FreeType2**: For font rendering
 - **HarfBuzz**: For text shaping (especially important for Arabic)
 - **System Libraries**: PkgConfig, Threads
-
-## Installation
 
 ### 1. Clone the Repository
 

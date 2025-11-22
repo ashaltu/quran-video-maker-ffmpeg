@@ -6,6 +6,10 @@ on:
       version:
         description: "Version tag, e.g. v1.0.0"
         required: true
+      prerelease:
+        description: "Is this a prerelease?"
+        type: boolean
+        default: true
 
 env:
   BUILD_DIR: build
@@ -32,9 +36,8 @@ jobs:
       uses: actions/cache@v4
       with:
         path: build
-        key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('**/*.cpp', '**/*.h') }}
+        key: ${{ runner.os }}-cmake-${{ hashFiles('CMakeLists.txt', 'src/**') }}
         restore-keys: |
-          ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-
           ${{ runner.os }}-cmake-
 
     - name: Configure CMake
@@ -75,9 +78,8 @@ jobs:
       uses: actions/cache@v4
       with:
         path: build
-        key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-${{ hashFiles('**/*.cpp', '**/*.h') }}
+        key: ${{ runner.os }}-cmake-${{ hashFiles('CMakeLists.txt', 'src/**') }}
         restore-keys: |
-          ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt') }}-
           ${{ runner.os }}-cmake-
 
     - name: Export FFmpeg pkgconfig paths (macOS)
@@ -147,19 +149,18 @@ jobs:
       with:
         tag_name: ${{ github.event.inputs.version }}
         files: qvm-${{ github.event.inputs.version }}.tar.gz
+        prerelease: ${{ github.event.inputs.prerelease }}
 
   update-homebrew-tap:
     needs: release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
     - name: Checkout homebrew-tap repository
       uses: actions/checkout@v4
       with:
         repository: ashaltu/homebrew-tap
-        token: ${{ secrets.GITHUB_TOKEN }}
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
     - name: Download release tarball to compute SHA256
       run: |
