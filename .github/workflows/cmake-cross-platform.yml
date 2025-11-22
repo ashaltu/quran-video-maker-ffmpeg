@@ -10,6 +10,7 @@ on:
 env:
   BUILD_DIR: build
   BUILD_TYPE: Release
+  CCACHE_CACHE_VERSION: v1
 
 jobs:
   build-linux:
@@ -36,7 +37,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ hashFiles('CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'src/**/*.h', 'src/**/*.cc') }}
+        key: ${{ runner.os }}-ccache-${{ env.CCACHE_CACHE_VERSION }}
         restore-keys: |
           ${{ runner.os }}-ccache-
 
@@ -80,7 +81,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ hashFiles('CMakeLists.txt', 'src/**/*.cpp', 'src/**/*.hpp', 'src/**/*.h', 'src/**/*.cc') }}
+        key: ${{ runner.os }}-ccache-${{ env.CCACHE_CACHE_VERSION }}
         restore-keys: |
           ${{ runner.os }}-ccache-
 
