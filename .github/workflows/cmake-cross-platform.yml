@@ -32,7 +32,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: build
-        key: ${{ runner.os }}-cmake-${{ hashFiles('CMakeLists.txt', 'src/**') }}
+        key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.h') }}
         restore-keys: |
           ${{ runner.os }}-cmake-
 
@@ -71,7 +71,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: build
-        key: ${{ runner.os }}-cmake-${{ hashFiles('CMakeLists.txt', 'src/**') }}
+        key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', '**/*.cpp', '**/*.h') }}
         restore-keys: |
           ${{ runner.os }}-cmake-
 
