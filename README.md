@@ -52,31 +52,17 @@ cd quran-video-maker-ffmpeg
 
 #### 2. Fetch and Extract Test Data
 
-This project uses Git LFS for large test data files.  
-If this is your first time using Git LFS on this machine, run:
+Download the prepackaged test data archive:
 
 ```bash
-git lfs install
-````
-
-Then fetch the actual data file (the `data.tar` in the repo is just a small LFS pointer):
-
-```bash
-git lfs pull
-```
-
-Now extract the test data:
-
-```bash
-tar -xvf data.tar
-unzip 'data/*.zip' -d data
-rm data/*.zip
+curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
+tar -xf data.tar
 
 # You may remove the original archive if you like:
 # rm data.tar
 ```
 
-This contains a subset of Quranic data (audio, translations, scripts) needed for local development and testing. For production use or additional resources, visit the [QUL Resources page](https://qul.tarteel.ai/resources/).
+This contains a subset of Quranic data (audio, translations, scripts) needed for local development and testing and unpacks directly into `data/`. For production use or additional resources, visit the [QUL Resources page](https://qul.tarteel.ai/resources/).
 
 #### 3. Install System Dependencies
 

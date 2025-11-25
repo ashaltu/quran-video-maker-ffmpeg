@@ -77,7 +77,7 @@ How does this help users engage with the Quran?
 
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/your-username/quran-video-maker-ffmpeg.git`
-3. Extract test data: `tar -xf data.tar`
+3. Download and extract test data: `curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar && tar -xf data.tar`
 4. Create a branch: `git checkout -b feature/your-feature-name`
 5. Make your changes
 6. Test thoroughly

@@ -21,8 +21,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        lfs: true
+
+    - name: Download test data
+      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
     - name: Install build deps
       run: |
@@ -43,10 +44,7 @@ jobs:
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
 
     - name: Extract test data
-      run: |
-        tar -xf data.tar
-        unzip 'data/*.zip' -d data || true
-        rm data/*.zip || true
+      run: tar -xf data.tar
 
     - name: Test
       run: |
@@ -58,8 +56,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with:
-        lfs: true
+
+    - name: Download test data
+      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
     - name: Install FFmpeg dependencies
       run: |
@@ -82,10 +81,7 @@ jobs:
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
 
     - name: Extract test data
-      run: |
-        tar -xf data.tar
-        unzip 'data/*.zip' -d data || true
-        rm data/*.zip || true
+      run: tar -xf data.tar
 
     - name: Test
       run: |
@@ -101,14 +97,13 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        lfs: true
         token: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Download data for release packaging
+      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
+
     - name: Extract data for release packaging
-      run: |
-        tar -xf data.tar
-        unzip 'data/*.zip' -d data || true
-        rm data/*.zip || true
+      run: tar -xf data.tar
 
     - name: Create release tarball (includes data/)
       run: |
