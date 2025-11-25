@@ -20,7 +20,6 @@ jobs:
             VER="${TAG#v}"
             brew install ashaltu/tap/qvm@$VER || brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
           fi
-          qvm --help
       - name: Smoke render
         run: |
           mkdir -p out
@@ -38,9 +37,11 @@ jobs:
             Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
             Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
           }
+          $env:PATH = "$env:USERPROFILE\\scoop\\shims;$env:PATH"
       - name: Install qvm via Scoop
         shell: pwsh
         run: |
+          $env:PATH = "$env:USERPROFILE\\scoop\\shims;$env:PATH"
           $tag = '${{ github.event.inputs.tag }}'
           if ([string]::IsNullOrEmpty($tag)) {
             $manifest = 'https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/latest/download/scoop-qvm.json'
@@ -48,7 +49,6 @@ jobs:
             $manifest = "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$tag/scoop-qvm.json"
           }
           scoop install $manifest
-          qvm --help
       - name: Smoke render
         shell: pwsh
         run: |
@@ -75,7 +75,6 @@ jobs:
             VER="${TAG#v}"
             brew install ashaltu/tap/qvm@$VER || brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
           fi
-          qvm --help
       - name: Smoke render
         run: |
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
