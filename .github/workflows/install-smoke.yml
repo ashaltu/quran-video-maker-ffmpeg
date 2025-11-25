@@ -60,11 +60,14 @@ jobs:
         shell: pwsh
         run: |
           $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
-          New-Item -ItemType Directory -Force -Path out | Out-Null
-          Write-Host "Listing data directory (if present):"
-          Get-ChildItem "$env:USERPROFILE\scoop\persist\scoop-qvm\data" -Recurse -ErrorAction SilentlyContinue
+          $qvmExe = (Get-Command qvm).Source
+          $appRoot = Split-Path (Split-Path $qvmExe -Parent) -Parent
+          Write-Host "qvm exe: $qvmExe"
+          Write-Host "app root: $appRoot"
+          Set-Location $appRoot
 
-          $qvmLog = "qvm.log"
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+          $qvmLog = Join-Path $appRoot "qvm.log"
           qvm 1 1 7 --output out\smoke.mp4 2>&1 | Tee-Object -FilePath $qvmLog
           if ($LASTEXITCODE -ne 0) {
             Get-Content $qvmLog
