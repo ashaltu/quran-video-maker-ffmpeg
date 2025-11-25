@@ -106,6 +106,8 @@ jobs:
 
     - name: Generate Scoop manifest
       run: |
+        VERSION="${{ github.event.inputs.version }}"
+        VER_NO_V="${VERSION#v}"
         cp scoop/qvm.json scoop-qvm.json
         sed -i.bak \
           -e "s/0.0.0/${VER_NO_V}/" \
