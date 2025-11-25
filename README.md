@@ -66,12 +66,12 @@ This contains a subset of Quranic data (audio, translations, scripts) needed for
 
 #### 3. Install System Dependencies
 
-**macOS:**
+**macOS (tested locally + GitHub Actions macos-15-arm64, 15.7.1 / 24G231):**
 ```bash
 brew install cmake pkg-config ffmpeg freetype harfbuzz
 ```
 
-**Ubuntu/Debian:**
+**Ubuntu/Debian (tested locally + GitHub Actions ubuntu-24.04):**
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
@@ -80,6 +80,9 @@ sudo apt-get install -y \
   libavutil-dev libswscale-dev \
   libfreetype6-dev libharfbuzz-dev
 ```
+
+**Windows (tested on GitHub Actions windows-2025 runner):**
+- CI uses MSYS2 UCRT64 with prebuilt ffmpeg/freetype/harfbuzz/curl/cpr/nlohmann-json/cxxopts and Ninja via Chocolatey for the smoke render. If you want to reproduce locally, install MSYS2 UCRT64 with the same packages and ensure `ffmpeg` is on PATH for the runtime render.
 
 #### 4. Build the Project
 

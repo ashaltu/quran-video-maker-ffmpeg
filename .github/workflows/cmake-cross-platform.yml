@@ -1,4 +1,4 @@
-name: CMake (Linux + macOS)
+name: CMake (Linux + macOS + Windows)
 
 on:
   push:

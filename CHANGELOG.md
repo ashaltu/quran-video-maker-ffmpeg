@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. This project follows [Semantic Versioning](https://semver.org) and takes inspiration from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+### Changed
+- Documented CI-tested platforms (Ubuntu 24.04, macOS 15 arm64, Windows Server 2025) and Windows setup expectations in the README.
+- Hardened Windows smoke render by normalizing/escaping FFmpeg filter paths so `ass`/`fontsdir` arguments parse correctly.
+
 ## [0.1.1] - 2025-11-25
 ### Changed
 - Replaced Git LFS with a direct download of test data from R2 storage bucket; docs/workflows updated accordingly and zipped data handling removed.
