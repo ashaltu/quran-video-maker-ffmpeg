@@ -152,23 +152,32 @@ jobs:
       id: sha
       run: echo "sha256=$(shasum -a 256 qvm-${{ github.event.inputs.version }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
 
-    - name: Update Homebrew formula
+    - name: Update Homebrew formulas (latest + versioned)
       run: |
-        FORMULA="Formula/qvm.rb"
-        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${{ github.event.inputs.version }}/qvm-${{ github.event.inputs.version }}.tar.gz"
+        VERSION="${{ github.event.inputs.version }}"
+        VER_NO_V="${VERSION#v}"
+        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${VERSION}/qvm-${VERSION}.tar.gz"
+        # Capture old version/sha before updating
+        OLD_URL=$(grep '^  url \"' Formula/qvm.rb | head -n1 | cut -d'\"' -f2)
+        OLD_SHA=$(grep '^  sha256 \"' Formula/qvm.rb | head -n1 | cut -d'\"' -f2)
+        OLD_VER=$(echo "$OLD_URL" | sed -E 's#.*/download/(v[^/]*)/qvm-.*#\1#')
+        OLD_VER_NO_V=${OLD_VER#v}
+        OLD_CLASS="QvmAT$(echo $OLD_VER_NO_V | tr -d '.')"
+        VFORMULA_OLD="Formula/qvm@${OLD_VER_NO_V}.rb"
 
-        sed -i.bak \
-          -e "s|url \".*\"|url \"${URL}\"|" \
-          -e "s|sha256 \".*\"|sha256 \"${{ steps.sha.outputs.sha256 }}\"|" \
-          -e "s|license \".*\"|license \"GPL-3.0\"|" \
-          "$FORMULA"
+        # Preserve old formula as versioned, if it doesn't already exist
+        if [ ! -f "$VFORMULA_OLD" ]; then
+          cp Formula/qvm.rb "$VFORMULA_OLD"
+          perl -pi -e "s/^class Qvm < Formula/class ${OLD_CLASS} < Formula/" "$VFORMULA_OLD"
+        fi
 
-        rm "$FORMULA.bak"
+        # Update latest formula in-place to the new version
+        perl -pi -e "s|^  url \".*\"$|  url \"${URL}\"|; s|^  sha256 \".*\"$|  sha256 \"${{ steps.sha.outputs.sha256 }}\"|" Formula/qvm.rb
 
     - name: Commit and push changes
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add Formula/qvm.rb
-        git commit -m "Update qvm to ${{ github.event.inputs.version }}"
+        git add Formula/qvm.rb Formula/qvm@*.rb
+        git commit -m "Update qvm to ${{ github.event.inputs.version }}" || echo "No changes to commit"
         git push

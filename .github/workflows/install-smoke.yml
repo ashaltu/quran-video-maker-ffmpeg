@@ -17,7 +17,7 @@ jobs:
           if [ -z "$TAG" ]; then
             brew install ashaltu/tap/qvm
           else
-            brew install ashaltu/tap/qvm@$TAG || brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
+            brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
           fi
           qvm --version
       - name: Smoke render
@@ -71,7 +71,7 @@ jobs:
           if [ -z "$TAG" ]; then
             brew install ashaltu/tap/qvm
           else
-            brew install ashaltu/tap/qvm@$TAG || brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
+            brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
           fi
           qvm --version
       - name: Smoke render
