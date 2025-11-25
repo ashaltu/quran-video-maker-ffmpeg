@@ -102,46 +102,49 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Download test data
-      shell: pwsh
-      run: curl.exe -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
+      shell: msys2 {0}
+      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
-    - name: Install dependencies (vcpkg + ffmpeg CLI)
-      shell: pwsh
-      run: |
-        choco install -y ninja ffmpeg
-        $env:VCPKG_ROOT="C:\vcpkg"
-        $triplet="x64-windows"
-        & "$env:VCPKG_ROOT\vcpkg.exe" install ffmpeg freetype harfbuzz cpr nlohmann-json pkgconf --triplet $triplet
+    - name: Set up MSYS2 with prebuilt deps
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >-
+          ucrt64/mingw-w64-ucrt-x86_64-gcc
+          ucrt64/mingw-w64-ucrt-x86_64-pkgconf
+          ucrt64/mingw-w64-ucrt-x86_64-cmake
+          ucrt64/mingw-w64-ucrt-x86_64-ninja
+          ucrt64/mingw-w64-ucrt-x86_64-ffmpeg
+          ucrt64/mingw-w64-ucrt-x86_64-freetype
+          ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
 
     - name: Configure CMake
-      shell: pwsh
+      shell: msys2 {0}
       run: |
-        $env:VCPKG_ROOT="C:\vcpkg"
-        $triplet="x64-windows"
-        $pkgconf="$env:VCPKG_ROOT\installed\$triplet\tools\pkgconf\pkgconf.exe"
-        $env:PKG_CONFIG_PATH="$env:VCPKG_ROOT\installed\$triplet\lib\pkgconfig;$env:VCPKG_ROOT\installed\$triplet\share\pkgconfig"
-        cmake -B $env:BUILD_DIR `
-          -G "Ninja" `
-          -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
-          -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake `
-          -DVCPKG_TARGET_TRIPLET=$triplet `
-          -DPKG_CONFIG_EXECUTABLE="$pkgconf" `
-          -DFETCHCONTENT_QUIET=OFF `
-          -S $env:GITHUB_WORKSPACE
+        export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig"
+        cmake -B ${BUILD_DIR} \
+          -G "Ninja" \
+          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+          -DCMAKE_PREFIX_PATH=/ucrt64 \
+          -DPKG_CONFIG_EXECUTABLE=/ucrt64/bin/pkg-config \
+          -DFETCHCONTENT_QUIET=OFF \
+          -S ${GITHUB_WORKSPACE}
 
     - name: Build
-      run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }}
+      shell: msys2 {0}
+      run: cmake --build ${BUILD_DIR} --config ${BUILD_TYPE}
 
     - name: Extract test data
+      shell: msys2 {0}
       run: tar -xf data.tar
 
     - name: Test
-      shell: pwsh
+      shell: msys2 {0}
       run: |
-        cd $env:BUILD_DIR
-        ctest --build-config $env:BUILD_TYPE --rerun-failed --output-on-failure
+        cd ${BUILD_DIR}
+        ctest --build-config ${BUILD_TYPE} --rerun-failed --output-on-failure
         cd ..
-        New-Item -ItemType Directory -Force -Path out | Out-Null
+        mkdir -p out
         ./build/qvm.exe 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
-        if (!(Test-Path out/ci-smoke.mp4) -or (Get-Item out/ci-smoke.mp4).Length -eq 0) { throw "Video missing or empty" }
-        if (!(Test-Path out/thumbnail.jpeg) -or (Get-Item out/thumbnail.jpeg).Length -eq 0) { throw "Thumbnail missing or empty" }
+        test -s out/ci-smoke.mp4
+        test -s out/thumbnail.jpeg
