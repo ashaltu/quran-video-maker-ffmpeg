@@ -115,6 +115,7 @@ jobs:
           ucrt64/mingw-w64-ucrt-x86_64-pkgconf
           ucrt64/mingw-w64-ucrt-x86_64-cmake
           ucrt64/mingw-w64-ucrt-x86_64-ninja
+          ucrt64/mingw-w64-ucrt-x86_64-curl
           ucrt64/mingw-w64-ucrt-x86_64-ffmpeg
           ucrt64/mingw-w64-ucrt-x86_64-freetype
           ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
@@ -128,6 +129,7 @@ jobs:
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DCMAKE_PREFIX_PATH=/ucrt64 \
           -DPKG_CONFIG_EXECUTABLE=/ucrt64/bin/pkg-config \
+          -DCPR_USE_SYSTEM_CURL=ON \
           -DFETCHCONTENT_QUIET=OFF \
           -S ${GITHUB_WORKSPACE}
 
