@@ -53,6 +53,22 @@ jobs:
         test -s out/ci-smoke.mp4
         test -s out/thumbnail.jpeg
 
+    - name: Package binary artifact
+      run: |
+        mkdir -p artifacts/linux
+        zip -r artifacts/linux/qvm-bin-linux.zip build/qvm config.json assets LICENSE README.md
+
+    - name: Package test results
+      run: |
+        mkdir -p artifacts/linux
+        zip -j artifacts/linux/qvm-test-results-linux-${{ github.run_id }}.zip out/ci-smoke.mp4 out/thumbnail.jpeg
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: qvm-linux
+        path: artifacts/linux
+
   build-macos:
     runs-on: macos-latest
 
@@ -94,6 +110,22 @@ jobs:
         ./build/qvm 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
         test -s out/ci-smoke.mp4
         test -s out/thumbnail.jpeg
+
+    - name: Package binary artifact
+      run: |
+        mkdir -p artifacts/macos
+        zip -r artifacts/macos/qvm-bin-macos.zip build/qvm config.json assets LICENSE README.md
+
+    - name: Package test results
+      run: |
+        mkdir -p artifacts/macos
+        zip -j artifacts/macos/qvm-test-results-macos-${{ github.run_id }}.zip out/ci-smoke.mp4 out/thumbnail.jpeg
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: qvm-macos
+        path: artifacts/macos
 
   build-windows:
     runs-on: windows-latest
@@ -160,3 +192,21 @@ jobs:
         ./build/qvm.exe 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
         test -s out/ci-smoke.mp4
         test -s out/thumbnail.jpeg
+
+    - name: Package binary artifact
+      shell: pwsh
+      run: |
+        mkdir artifacts\windows
+        Compress-Archive -Path build\qvm.exe,config.json,assets,LICENSE,README.md -DestinationPath artifacts\windows\qvm-bin-windows.zip
+
+    - name: Package test results
+      shell: pwsh
+      run: |
+        mkdir artifacts\windows
+        Compress-Archive -Path out\ci-smoke.mp4,out\thumbnail.jpeg -DestinationPath artifacts\windows\qvm-test-results-windows-${{ github.run_id }}.zip
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: qvm-windows
+        path: artifacts/windows

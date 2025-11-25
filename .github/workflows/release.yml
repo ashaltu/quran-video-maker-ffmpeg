@@ -1,4 +1,4 @@
-name: Release (build + test + brew)
+name: Release (reuse CI artifacts)
 
 on:
   workflow_dispatch:
@@ -16,182 +16,63 @@ env:
   BUILD_TYPE: Release
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Download test data
-      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
-
-    - name: Install build deps
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          libavformat-dev libavcodec-dev libavfilter-dev \
-          libavutil-dev libswscale-dev \
-          libfreetype6-dev libharfbuzz-dev
-        sudo apt-get install -y ffmpeg
-
-    - name: Configure CMake
-      run: |
-        cmake -B $BUILD_DIR \
-          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-          -DFETCHCONTENT_QUIET=OFF \
-          -S .
-
-    - name: Build
-      run: cmake --build $BUILD_DIR --config $BUILD_TYPE
-
-    - name: Extract test data
-      run: tar -xf data.tar
-
-    - name: Test
-      run: |
-        cd "$BUILD_DIR"
-        ctest --build-config "$BUILD_TYPE" --output-on-failure
-        cd ..
-        mkdir -p out
-        ./build/qvm 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
-        test -s out/ci-smoke.mp4
-        test -s out/thumbnail.jpeg
-
-  build-macos:
-    runs-on: macos-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Download test data
-      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
-
-    - name: Install FFmpeg dependencies
-      run: |
-        brew update
-        brew install ffmpeg freetype harfbuzz
-
-    - name: Export FFmpeg pkgconfig paths (macOS)
-      run: |
-        export PKG_CONFIG_PATH="/opt/homebrew/opt/ffmpeg/lib/pkgconfig:/usr/local/opt/ffmpeg/lib/pkgconfig:$PKG_CONFIG_PATH"
-        echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
-
-    - name: Configure CMake
-      run: |
-        cmake -B $BUILD_DIR \
-          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-          -DFETCHCONTENT_QUIET=OFF \
-          -S .
-
-    - name: Build
-      run: cmake --build $BUILD_DIR --config $BUILD_TYPE
-
-    - name: Extract test data
-      run: tar -xf data.tar
-
-    - name: Test
-      run: |
-        cd "$BUILD_DIR"
-        ctest --build-config "$BUILD_TYPE" --output-on-failure
-        cd ..
-        mkdir -p out
-        ./build/qvm 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
-        test -s out/ci-smoke.mp4
-        test -s out/thumbnail.jpeg
-
-  build-windows:
-    runs-on: windows-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Download test data
-      shell: pwsh
-      run: curl.exe -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
-
-    - name: Set up MSYS2 with prebuilt deps
-      uses: msys2/setup-msys2@v2
-      with:
-        update: true
-        msystem: UCRT64
-        install: >-
-          ucrt64/mingw-w64-ucrt-x86_64-gcc
-          ucrt64/mingw-w64-ucrt-x86_64-pkgconf
-          ucrt64/mingw-w64-ucrt-x86_64-cmake
-          ucrt64/mingw-w64-ucrt-x86_64-ninja
-          ucrt64/mingw-w64-ucrt-x86_64-curl
-          ucrt64/mingw-w64-ucrt-x86_64-cpr
-          ucrt64/mingw-w64-ucrt-x86_64-nlohmann-json
-          ucrt64/mingw-w64-ucrt-x86_64-cxxopts
-          ucrt64/mingw-w64-ucrt-x86_64-ffmpeg
-          ucrt64/mingw-w64-ucrt-x86_64-freetype
-          ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
-
-    - name: Configure CMake
-      shell: msys2 {0}
-      run: |
-        export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig"
-        cmake -B ${BUILD_DIR} \
-          -G "Ninja" \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          -DCMAKE_PREFIX_PATH=/ucrt64 \
-          -DPKG_CONFIG_EXECUTABLE=/ucrt64/bin/pkg-config \
-          -Dcpr_DIR=/ucrt64/lib/cmake/cpr \
-          -Dnlohmann_json_DIR=/ucrt64/lib/cmake/nlohmann_json \
-          -Dcxxopts_DIR=/ucrt64/lib/cmake/cxxopts \
-          -DCPR_USE_SYSTEM_CURL=ON \
-          -DCPR_FORCE_USE_SYSTEM_CURL=ON \
-          -DFETCHCONTENT_TRY_FIND_PACKAGE=ON \
-          -DFETCHCONTENT_QUIET=OFF \
-          -S ${GITHUB_WORKSPACE}
-
-    - name: Build
-      shell: msys2 {0}
-      run: cmake --build ${BUILD_DIR} --config ${BUILD_TYPE}
-
-    - name: Extract test data
-      shell: msys2 {0}
-      run: tar -xf data.tar
-
-    - name: Test
-      shell: msys2 {0}
-      run: |
-        export PATH="/ucrt64/bin:$PATH"
-        cd ${BUILD_DIR}
-        ctest --build-config ${BUILD_TYPE} --rerun-failed --output-on-failure
-        cd ..
-        mkdir -p out
-        ./build/qvm.exe 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
-        test -s out/ci-smoke.mp4
-        test -s out/thumbnail.jpeg
-
   release:
-    needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Find latest successful cmake-cross-platform run for this commit
+      id: find-run
+      uses: actions/github-script@v7
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const workflow = "cmake-cross-platform.yml";
+          const headSha = context.sha;
+          const runs = await github.rest.actions.listWorkflowRuns({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: workflow,
+            head_sha: headSha,
+            status: "completed"
+          });
+          const run = runs.data.workflow_runs.find(r => r.conclusion === "success");
+          if (!run) {
+            core.setFailed(`No successful ${workflow} run found for ${headSha}`);
+            return;
+          }
+          core.setOutput("run_id", run.id.toString());
+          core.setOutput("run_url", run.html_url);
+          core.info(`Using artifacts from run ${run.id} (${run.html_url})`);
 
-    - name: Download data for release packaging
-      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
+    - name: Download platform artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: qvm-linux
+        run-id: ${{ steps.find-run.outputs.run_id }}
+        path: artifacts/linux
 
-    - name: Extract data for release packaging
-      run: tar -xf data.tar
+    - name: Download platform artifacts (macOS)
+      uses: actions/download-artifact@v4
+      with:
+        name: qvm-macos
+        run-id: ${{ steps.find-run.outputs.run_id }}
+        path: artifacts/macos
 
-    - name: Create release tarball (includes data/)
+    - name: Download platform artifacts (Windows)
+      uses: actions/download-artifact@v4
+      with:
+        name: qvm-windows
+        run-id: ${{ steps.find-run.outputs.run_id }}
+        path: artifacts/windows
+
+    - name: Prepare source tarball (assets included, data excluded)
       run: |
         mkdir release-src
         git archive --format=tar --prefix=qvm-${{ github.event.inputs.version }}/ HEAD | tar -xf - -C release-src
-        cp -r data release-src/qvm-${{ github.event.inputs.version }}/
         tar -czf qvm-${{ github.event.inputs.version }}.tar.gz -C release-src qvm-${{ github.event.inputs.version }}
-
-    - name: Compute SHA256
-      id: sha
-      run: echo "sha256=$(shasum -a 256 qvm-${{ github.event.inputs.version }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
 
     - name: Create Git tag
       run: |
@@ -204,7 +85,11 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.event.inputs.version }}
-        files: qvm-${{ github.event.inputs.version }}.tar.gz
+        files: |
+          qvm-${{ github.event.inputs.version }}.tar.gz
+          artifacts/linux/qvm-bin-linux.zip
+          artifacts/macos/qvm-bin-macos.zip
+          artifacts/windows/qvm-bin-windows.zip
         prerelease: ${{ github.event.inputs.prerelease }}
 
   update-homebrew-tap:
