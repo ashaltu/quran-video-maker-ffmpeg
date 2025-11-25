@@ -102,8 +102,8 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Download test data
-      shell: msys2 {0}
-      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
+      shell: pwsh
+      run: curl.exe -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
     - name: Set up MSYS2 with prebuilt deps
       uses: msys2/setup-msys2@v2
