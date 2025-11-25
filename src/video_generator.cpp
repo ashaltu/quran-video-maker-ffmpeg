@@ -315,7 +315,7 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
 void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfig& config) {
     try {
         std::string output_dir = fs::path(options.output).parent_path().string();
-        std::string thumbnail_path = fs::path(output_dir) / "thumbnail.jpeg";
+        std::string thumbnail_path = (fs::path(output_dir) / "thumbnail.jpeg").string();
 
         std::string language_code = LocalizationUtils::getLanguageCode(config);
         std::string localized_surah_label = LocalizationUtils::getLocalizedSurahLabel(language_code);
