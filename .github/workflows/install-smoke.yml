@@ -52,6 +52,10 @@ jobs:
           Invoke-WebRequest $manifest -OutFile $tmp
           # Patch any accidental double-v in the URL
           (Get-Content $tmp) -replace "download/vv", "download/v" | Set-Content $tmp
+          $version = (ConvertFrom-Json (Get-Content $tmp -Raw)).version
+          if (-not $version) { $version = "latest" }
+          $appDir = Join-Path $env:USERPROFILE "scoop\\apps\\scoop-qvm\\$version"
+          New-Item -ItemType Directory -Force -Path (Join-Path $appDir "_tmp") | Out-Null
           scoop install $tmp
       - name: Smoke render
         shell: pwsh

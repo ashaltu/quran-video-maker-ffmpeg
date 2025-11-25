@@ -12,6 +12,11 @@
       "qvm"
     ]
   ],
+  "installer": {
+    "script": [
+      "Expand-Archive \"$cachedir\\$fname\" -DestinationPath $dir -Force"
+    ]
+  },
   "post_install": [
     "$persistData = \"$persist_dir\\data\"",
     "$dataTar = \"$persist_dir\\data.tar\"",

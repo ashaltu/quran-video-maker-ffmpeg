@@ -8,7 +8,7 @@ All notable changes to this project will be documented in this file. This projec
 - Hardened Windows smoke render by normalizing/escaping FFmpeg filter paths so `ass`/`fontsdir` arguments parse correctly.
 - Release workflow now reuses CI-produced binary artifacts (no data/assets bundled); data stays external via `data.tar` download.
 - Added a Scoop manifest template (`scoop/qvm.json`) for Windows; bucket maintainers must set the `hash` for each release.
-- Scoop manifest now pre-creates the temp extraction dir to avoid install errors.
+- Scoop manifest now overrides extraction (manual Expand-Archive) and pre-creates temp data; bucket maintainers still need to set the hash per release.
 
 ## [0.1.1] - 2025-11-25
 ### Changed
