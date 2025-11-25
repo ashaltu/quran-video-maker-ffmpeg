@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 - Documented CI-tested platforms (Ubuntu 24.04, macOS 15 arm64, Windows Server 2025) and Windows setup expectations in the README.
 - Hardened Windows smoke render by normalizing/escaping FFmpeg filter paths so `ass`/`fontsdir` arguments parse correctly.
 - Release workflow now reuses CI-produced binary artifacts (no data/assets bundled); data stays external via `data.tar` download.
+- Added a Scoop manifest template (`scoop/qvm.json`) for Windows; bucket maintainers must set the `hash` for each release.
 
 ## [0.1.1] - 2025-11-25
 ### Changed

@@ -1,0 +1,34 @@
+{
+  "version": "0.0.0",
+  "description": "C++/FFmpeg tool that generates high-quality Quran verse videos",
+  "homepage": "https://github.com/ashaltu/quran-video-maker-ffmpeg",
+  "license": "GPL-3.0",
+  "url": "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/v0.0.0/qvm-bin-windows.zip",
+  "hash": "REPLACE_WITH_SHA256_OF_qvm-bin-windows.zip",
+  "extract_dir": ".",
+  "bin": [
+    [
+      "build\\qvm.exe",
+      "qvm"
+    ]
+  ],
+  "post_install": [
+    "$persistData = \"$persist_dir\\data\"",
+    "$dataTar = \"$persist_dir\\data.tar\"",
+    "if (!(Test-Path $persistData)) {",
+    "  Write-Host \"Fetching data.tar ...\"",
+    "  Invoke-WebRequest https://qvm-r2-storage.tawbah.app/data.tar -OutFile $dataTar",
+    "  tar -xf $dataTar -C $persist_dir",
+    "  Remove-Item $dataTar -Force",
+    "}",
+    "$link = \"$dir\\data\"",
+    "if (Test-Path $link) { Remove-Item $link -Recurse -Force }",
+    "New-Item -ItemType Junction -Path $link -Target $persistData | Out-Null"
+  ],
+  "checkver": {
+    "github": "https://github.com/ashaltu/quran-video-maker-ffmpeg"
+  },
+  "autoupdate": {
+    "url": "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/v$version/qvm-bin-windows.zip"
+  }
+}

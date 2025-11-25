@@ -23,14 +23,23 @@ The tool supports both gapped (ayah-by-ayah) and gapless (continuous) workflows.
 
 ## Installing
 
-### With Homebrew
+### With Homebrew (macOS/Linux)
 
 ```bash
 brew install ashaltu/tap/qvm
 
-qvm --help
 qvm 1 1 7 # Generates video for the entire Surah Fatiha
 ```
+
+### With Scoop (Windows)
+
+```powershell
+scoop install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/latest/download/scoop-qvm.json
+
+qvm 1 1 7
+```
+
+Data is fetched automatically via the Scoop manifest.
 
 ### Manually
 
@@ -78,12 +87,33 @@ sudo apt-get update
 sudo apt-get install -y \
   build-essential cmake pkg-config \
   libavformat-dev libavcodec-dev libavfilter-dev \
-  libavutil-dev libswscale-dev \
+  libavutil-dev libswscale-dev libswresample-dev \
   libfreetype6-dev libharfbuzz-dev
 ```
 
 **Windows (tested on GitHub Actions windows-2025 runner):**
-- CI uses MSYS2 UCRT64 with prebuilt ffmpeg/freetype/harfbuzz/curl/cpr/nlohmann-json/cxxopts and Ninja via Chocolatey for the smoke render. If you want to reproduce locally, install MSYS2 UCRT64 with the same packages and ensure `ffmpeg` is on PATH for the runtime render.
+- Manual (MSYS2 UCRT64):
+  ```bash
+  pacman -S --noconfirm \
+    mingw-w64-ucrt-x86_64-gcc \
+    mingw-w64-ucrt-x86_64-cmake \
+    mingw-w64-ucrt-x86_64-pkgconf \
+    mingw-w64-ucrt-x86_64-ninja \
+    mingw-w64-ucrt-x86_64-ffmpeg \
+    mingw-w64-ucrt-x86_64-freetype \
+    mingw-w64-ucrt-x86_64-harfbuzz \
+    mingw-w64-ucrt-x86_64-curl \
+    mingw-w64-ucrt-x86_64-cpr \
+    mingw-w64-ucrt-x86_64-nlohmann-json \
+    mingw-w64-ucrt-x86_64-cxxopts
+  ```
+  Then build with CMake/Ninja under MSYS2, download `data.tar` to the repo root, `tar -xf data.tar`, and run `./build/qvm.exe ...`.
+
+Scoop (Windows):
+```powershell
+scoop install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/latest/download/scoop-qvm.json
+qvm 1 1 7
+```
 
 #### 4. Build the Project
 

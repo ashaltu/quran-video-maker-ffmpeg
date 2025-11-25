@@ -1,0 +1,83 @@
+name: Install Smoke Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to install (e.g., v0.1.2). Defaults to latest if empty."
+        required: false
+
+jobs:
+  macos-brew:
+    runs-on: macos-latest
+    steps:
+      - name: Install via Homebrew
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            brew install ashaltu/tap/qvm
+          else
+            brew install ashaltu/tap/qvm@$TAG || brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
+          fi
+          qvm --version
+      - name: Smoke render
+        run: |
+          mkdir -p out
+          qvm 1 1 7 --output out/smoke.mp4
+          test -s out/smoke.mp4
+          test -s out/thumbnail.jpeg
+
+  windows-scoop:
+    runs-on: windows-latest
+    steps:
+      - name: Install Scoop
+        shell: pwsh
+        run: |
+          if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+            Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+            Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')
+          }
+      - name: Install qvm via Scoop
+        shell: pwsh
+        run: |
+          $tag = '${{ github.event.inputs.tag }}'
+          if ([string]::IsNullOrEmpty($tag)) {
+            $manifest = 'https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/latest/download/scoop-qvm.json'
+          } else {
+            $manifest = \"https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$tag/scoop-qvm.json\"
+          }
+          scoop install $manifest
+          qvm --version
+      - name: Smoke render
+        shell: pwsh
+        run: |
+          mkdir -p out
+          qvm 1 1 7 --output out\\smoke.mp4
+          if (!(Test-Path out\\smoke.mp4) -or (Get-Item out\\smoke.mp4).Length -eq 0) { throw 'Video missing or empty' }
+          if (!(Test-Path out\\thumbnail.jpeg) -or (Get-Item out\\thumbnail.jpeg).Length -eq 0) { throw 'Thumbnail missing or empty' }
+
+  linux-brew:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Homebrew (Linuxbrew)
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $HOME/.bash_profile
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+      - name: Install qvm via Homebrew
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            brew install ashaltu/tap/qvm
+          else
+            brew install ashaltu/tap/qvm@$TAG || brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
+          fi
+          qvm --version
+      - name: Smoke render
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          mkdir -p out
+          qvm 1 1 7 --output out/smoke.mp4
+          test -s out/smoke.mp4
+          test -s out/thumbnail.jpeg

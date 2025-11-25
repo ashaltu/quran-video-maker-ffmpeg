@@ -100,6 +100,20 @@ jobs:
         run-id: ${{ steps.find-run.outputs.run_id }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Compute Windows artifact SHA
+      id: winsha
+      run: echo "win_sha=$(shasum -a 256 artifacts/windows/qvm-bin-windows.zip | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+    - name: Generate Scoop manifest
+      run: |
+        cp scoop/qvm.json scoop-qvm.json
+        sed -i.bak \
+          -e "s/0.0.0/${{ github.event.inputs.version }}/" \
+          -e "s|/v0.0.0/qvm-bin-windows.zip|/v${{ github.event.inputs.version }}/qvm-bin-windows.zip|" \
+          -e "s/REPLACE_WITH_SHA256_OF_qvm-bin-windows.zip/${{ steps.winsha.outputs.win_sha }}/" \
+          scoop-qvm.json
+        rm scoop-qvm.json.bak
+
     - name: Prepare source tarball
       run: |
         mkdir release-src
@@ -115,6 +129,7 @@ jobs:
           artifacts/linux/qvm-bin-linux.zip
           artifacts/macos/qvm-bin-macos.zip
           artifacts/windows/qvm-bin-windows.zip
+          scoop-qvm.json
         prerelease: ${{ github.event.inputs.prerelease }}
 
   update-homebrew-tap:
