@@ -23,7 +23,7 @@ if(NOT cpr_FOUND)
     FetchContent_Declare(
       cpr
       GIT_REPOSITORY https://github.com/libcpr/cpr.git
-      GIT_TAG        1.12.0
+      GIT_TAG        1.11.3
     )
     FetchContent_MakeAvailable(cpr)
 endif()
