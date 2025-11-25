@@ -208,6 +208,23 @@ cd /tmp # or any other folder just not in the repo directory so we're sure no ch
 qvm 1 1 7 # creates surah fatiha. you can test with any other config values or cli flags 
 ```
 
+#### Testing Homebrew packaging (when touching config paths/assets/data)
+- Update `qvm.rb` in your tap (`$(brew --repo ashaltu/homebrew-tap)/Formula/qvm.rb`), then reinstall from source:
+  ```bash
+  brew reinstall --build-from-source ashaltu/tap/qvm
+  qvm 1 1 7  # Should run without missing data/assets
+  ```
+- Verify data landed under `$(brew --prefix)/share/quran-video-maker/data`:
+  ```bash
+  ls $(brew --prefix)/share/quran-video-maker/data/quran/qpc-hafs-word-by-word.json
+  ```
+- Optional: run a local smoke render from within the repo similar to CI (must've built already):
+  ```bash
+  ./build/qvm 1 1 7 --translation 1 --output out/local-smoke.mp4
+  test -s out/local-smoke.mp4
+  test -s out/thumbnail.jpeg
+  ```
+
 Always test with various surahs:
 - Short surahs (e.g., Al-Fatiha)
 - Long surahs (e.g., Al-Baqarah)

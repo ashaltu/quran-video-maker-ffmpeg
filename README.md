@@ -63,6 +63,7 @@ tar -xf data.tar
 ```
 
 This contains a subset of Quranic data (audio, translations, scripts) needed for local development and testing and unpacks directly into `data/`. For production use or additional resources, visit the [QUL Resources page](https://qul.tarteel.ai/resources/).
+Releases do not bundle data; always download `data.tar` from the R2 link above (same for WSL).
 
 #### 3. Install System Dependencies
 
