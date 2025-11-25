@@ -32,9 +32,11 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          const override = core.getInput("artifact_run_id");
+          const overrideInput = core.getInput("artifact_run_id")?.trim();
+          const overrideEnv = process.env.ARTIFACT_RUN_ID?.trim();
+          const override = overrideInput || overrideEnv;
           if (override) {
-            core.setOutput("run_id", override.trim());
+            core.setOutput("run_id", override);
             core.info(`Using provided run id ${override}`);
             return;
           }
