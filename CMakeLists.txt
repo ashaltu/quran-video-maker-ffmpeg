@@ -17,10 +17,6 @@ if(NOT cxxopts_FOUND)
     FetchContent_MakeAvailable(cxxopts)
 endif()
 
-# Prefer system curl to avoid building it when cpr fetches dependencies
-set(CPR_FORCE_USE_SYSTEM_CURL ON CACHE BOOL "" FORCE)
-set(CPR_USE_SYSTEM_CURL ON CACHE BOOL "" FORCE)
-
 # Dependency: cpr
 find_package(cpr CONFIG)
 if(NOT cpr_FOUND)
