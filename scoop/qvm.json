@@ -5,9 +5,11 @@
   "license": "GPL-3.0",
   "url": "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/v0.0.0/qvm-bin-windows.zip",
   "hash": "REPLACE_WITH_SHA256_OF_qvm-bin-windows.zip",
-  "bin": "build\\qvm.exe",
+  "bin": "qvm.exe",
+  "depends": ["ffmpeg"],
   "persist": "data",
   "pre_install": [
+    "if (!(Test-Path \"$persist_dir\")) { New-Item -ItemType Directory -Path \"$persist_dir\" | Out-Null }",
     "if (!(Test-Path \"$persist_dir\\data\")) {",
     "  Write-Host 'Fetching data.tar...'",
     "  $dataTar = \"$persist_dir\\data.tar\"",

@@ -60,7 +60,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          qvm 1 1 7 --output out\smoke.mp4
+          qvm 1 1 7 --output out\smoke.mp4  2>&1 | Write-Host
           
           if (!(Test-Path out\smoke.mp4) -or (Get-Item out\smoke.mp4).Length -eq 0) {
             throw 'Video missing or empty'
