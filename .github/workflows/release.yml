@@ -157,10 +157,13 @@ jobs:
         VERSION="${{ github.event.inputs.version }}"
         VER_NO_V="${VERSION#v}"
         URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${VERSION}/qvm-${VERSION}.tar.gz"
-        # Capture old version/sha before updating
-        OLD_URL=$(grep '^  url \"' Formula/qvm.rb | head -n1 | cut -d'\"' -f2)
-        OLD_SHA=$(grep '^  sha256 \"' Formula/qvm.rb | head -n1 | cut -d'\"' -f2)
-        OLD_VER=$(echo "$OLD_URL" | sed -E 's#.*/download/(v[^/]*)/qvm-.*#\1#')
+        # Capture old version before updating
+        OLD_URL=$(grep '^  url "' Formula/qvm.rb | head -n1 | sed -E 's/^  url "([^"]+)".*/\1/')
+        OLD_VER=$(echo "$OLD_URL" | sed -nE 's#.*/download/(v[^/]+)/.*#\1#p')
+        if [ -z "$OLD_VER" ]; then
+          echo "Could not detect old version from $OLD_URL" >&2
+          exit 1
+        fi
         OLD_VER_NO_V=${OLD_VER#v}
         OLD_CLASS="QvmAT$(echo $OLD_VER_NO_V | tr -d '.')"
         VFORMULA_OLD="Formula/qvm@${OLD_VER_NO_V}.rb"
