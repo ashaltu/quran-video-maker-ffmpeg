@@ -45,7 +45,7 @@ jobs:
           if ([string]::IsNullOrEmpty($tag)) {
             $manifest = 'https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/latest/download/scoop-qvm.json'
           } else {
-            $manifest = \"https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$tag/scoop-qvm.json\"
+            $manifest = "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$tag/scoop-qvm.json"
           }
           scoop install $manifest
           qvm --version
