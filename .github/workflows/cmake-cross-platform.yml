@@ -143,6 +143,7 @@ jobs:
     - name: Test
       shell: msys2 {0}
       run: |
+        export PATH="/ucrt64/bin:$PATH"
         cd ${BUILD_DIR}
         ctest --build-config ${BUILD_TYPE} --rerun-failed --output-on-failure
         cd ..
