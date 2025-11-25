@@ -6,37 +6,43 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-# Dependency: cxxopts
-find_package(cxxopts CONFIG)
-if(NOT cxxopts_FOUND)
-    FetchContent_Declare(
-      cxxopts
-      GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-      GIT_TAG        v3.2.0
-    )
-    FetchContent_MakeAvailable(cxxopts)
-endif()
+if(WIN32)
+    find_package(cxxopts CONFIG REQUIRED)
+    find_package(cpr CONFIG REQUIRED)
+    find_package(nlohmann_json CONFIG REQUIRED)
+else()
+    # Dependency: cxxopts
+    find_package(cxxopts CONFIG)
+    if(NOT cxxopts_FOUND)
+        FetchContent_Declare(
+          cxxopts
+          GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+          GIT_TAG        v3.2.0
+        )
+        FetchContent_MakeAvailable(cxxopts)
+    endif()
 
-# Dependency: cpr
-find_package(cpr CONFIG)
-if(NOT cpr_FOUND)
-    FetchContent_Declare(
-      cpr
-      GIT_REPOSITORY https://github.com/libcpr/cpr.git
-      GIT_TAG        1.11.3
-    )
-    FetchContent_MakeAvailable(cpr)
-endif()
+    # Dependency: cpr
+    find_package(cpr CONFIG)
+    if(NOT cpr_FOUND)
+        FetchContent_Declare(
+          cpr
+          GIT_REPOSITORY https://github.com/libcpr/cpr.git
+          GIT_TAG        1.11.3
+        )
+        FetchContent_MakeAvailable(cpr)
+    endif()
 
-# Dependency: nlohmann_json
-find_package(nlohmann_json CONFIG)
-if(NOT nlohmann_json_FOUND)
-    FetchContent_Declare(
-      nlohmann_json
-      GIT_REPOSITORY https://github.com/nlohmann/json.git
-      GIT_TAG        v3.11.3
-    )
-    FetchContent_MakeAvailable(nlohmann_json)
+    # Dependency: nlohmann_json
+    find_package(nlohmann_json CONFIG)
+    if(NOT nlohmann_json_FOUND)
+        FetchContent_Declare(
+          nlohmann_json
+          GIT_REPOSITORY https://github.com/nlohmann/json.git
+          GIT_TAG        v3.11.3
+        )
+        FetchContent_MakeAvailable(nlohmann_json)
+    endif()
 endif()
 
 # Find required system libraries
