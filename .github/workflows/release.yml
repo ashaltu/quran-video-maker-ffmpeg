@@ -50,6 +50,11 @@ jobs:
       run: |
         cd "$BUILD_DIR"
         ctest --build-config "$BUILD_TYPE" --output-on-failure
+        cd ..
+        mkdir -p out
+        ./build/qvm 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
+        test -s out/ci-smoke.mp4
+        test -s out/thumbnail.jpeg
 
   build-macos:
     runs-on: macos-latest
@@ -87,6 +92,11 @@ jobs:
       run: |
         cd "$BUILD_DIR"
         ctest --build-config "$BUILD_TYPE" --output-on-failure
+        cd ..
+        mkdir -p out
+        ./build/qvm 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
+        test -s out/ci-smoke.mp4
+        test -s out/thumbnail.jpeg
 
   release:
     needs: [build-linux, build-macos]
