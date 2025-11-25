@@ -147,9 +147,30 @@ void runCommandWithProgress(const std::string& command, double totalDurationSeco
 
 } // namespace
 
-// Normalize paths for ffmpeg arguments to avoid backslash escape issues on Windows.
+// Normalize paths for ffmpeg arguments.
 static std::string to_ffmpeg_path(const fs::path& p) {
-    return p.generic_string();
+    return p.generic_string(); // forward slashes are accepted on all platforms
+}
+
+// Escape characters that are significant to FFmpeg filter arguments (e.g., colons inside paths).
+static std::string to_ffmpeg_filter_path(const fs::path& p) {
+    std::string s = to_ffmpeg_path(p);
+#ifdef _WIN32
+    std::string out;
+    out.reserve(s.size() * 2);
+    for (char ch : s) {
+        if (ch == ':') {
+            out.append("\\:");
+        } else if (ch == '\'') {
+            out.append("\\'");
+        } else {
+            out.push_back(ch);
+        }
+    }
+    return out;
+#else
+    return s;
+#endif
 }
 
 void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& config, const std::vector<VerseData>& verses) {
@@ -162,8 +183,8 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
         std::cout << "Generating subtitles..." << std::endl;
         if (options.emitProgress) emitStageMessage("subtitles", "running", "Generating subtitles");
         std::string ass_filename = SubtitleBuilder::buildAssFile(config, options, verses, intro_duration, pause_after_intro_duration);
-        std::string ass_ffmpeg_path = to_ffmpeg_path(fs::path(ass_filename));
-        std::string fonts_ffmpeg_path = to_ffmpeg_path(fs::absolute(config.assetFolderPath) / "fonts");
+        std::string ass_ffmpeg_path = to_ffmpeg_filter_path(fs::path(ass_filename));
+        std::string fonts_ffmpeg_path = to_ffmpeg_filter_path(fs::absolute(config.assetFolderPath) / "fonts");
         if (options.emitProgress) emitStageMessage("subtitles", "completed", "Subtitles generated");
 
         double verses_duration = 0.0;
@@ -398,13 +419,13 @@ void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfi
                 
         ass_file.close();
 
-        std::string fonts_dir = to_ffmpeg_path(fs::absolute(config.assetFolderPath) / "fonts");
+        std::string fonts_dir = to_ffmpeg_filter_path(fs::absolute(config.assetFolderPath) / "fonts");
 
         std::stringstream cmd;
         cmd << "ffmpeg -y "
             << "-ss 0 "
             << "-i \"" << to_ffmpeg_path(config.assetBgVideo) << "\" "
-            << "-vf \"ass='" << to_ffmpeg_path(ass_path) << "':fontsdir='" << fonts_dir << "'\" "
+            << "-vf \"ass='" << to_ffmpeg_filter_path(ass_path) << "':fontsdir='" << fonts_dir << "'\" "
             << "-frames:v 1 "
             << "-q:v 2 "
             << "\"" << thumbnail_path << "\"";
