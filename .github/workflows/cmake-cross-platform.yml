@@ -49,9 +49,14 @@ jobs:
         ctest --build-config "$BUILD_TYPE" --rerun-failed --output-on-failure
         cd ..
         mkdir -p out
-        ./build/qvm 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
-        test -s out/ci-smoke.mp4
-        test -s out/thumbnail.jpeg
+        ./build/qvm 1 1 7 --translation 1 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/en-ci-smoke.mp4
+        mv out/thumbnail.jpeg out/en-thumbnail.jpeg
+        ./build/qvm 1 1 7 --translation 4 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/urd-ci-smoke.mp4
+        mv out/thumbnail.jpeg out/urd-thumbnail.jpeg
+        test -s out/en-ci-smoke.mp4
+        test -s out/en-thumbnail.jpeg
+        test -s out/urd-ci-smoke.mp4
+        test -s out/urd-thumbnail.jpeg
 
     - name: Package binary artifact
       run: |
@@ -61,7 +66,7 @@ jobs:
     - name: Package test results
       run: |
         mkdir -p artifacts/linux
-        zip -j artifacts/linux/qvm-test-results-linux-${{ github.run_id }}.zip out/ci-smoke.mp4 out/thumbnail.jpeg
+        zip -j artifacts/linux/qvm-test-results-linux-${{ github.run_id }}.zip out/en-ci-smoke.mp4 out/en-thumbnail.jpeg out/urd-ci-smoke.mp4 out/urd-thumbnail.jpeg
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -107,9 +112,14 @@ jobs:
         ctest --build-config "$BUILD_TYPE" --rerun-failed --output-on-failure
         cd ..
         mkdir -p out
-        ./build/qvm 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
-        test -s out/ci-smoke.mp4
-        test -s out/thumbnail.jpeg
+        ./build/qvm 1 1 7 --translation 1 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/en-ci-smoke.mp4
+        mv out/thumbnail.jpeg out/en-thumbnail.jpeg
+        ./build/qvm 1 1 7 --translation 4 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/urd-ci-smoke.mp4
+        mv out/thumbnail.jpeg out/urd-thumbnail.jpeg
+        test -s out/en-ci-smoke.mp4
+        test -s out/en-thumbnail.jpeg
+        test -s out/urd-ci-smoke.mp4
+        test -s out/urd-thumbnail.jpeg
 
     - name: Package binary artifact
       run: |
@@ -119,7 +129,7 @@ jobs:
     - name: Package test results
       run: |
         mkdir -p artifacts/macos
-        zip -j artifacts/macos/qvm-test-results-macos-${{ github.run_id }}.zip out/ci-smoke.mp4 out/thumbnail.jpeg
+        zip -j artifacts/macos/qvm-test-results-macos-${{ github.run_id }}.zip out/en-ci-smoke.mp4 out/en-thumbnail.jpeg out/urd-ci-smoke.mp4 out/urd-thumbnail.jpeg
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -189,9 +199,14 @@ jobs:
         ctest --build-config ${BUILD_TYPE} --rerun-failed --output-on-failure
         cd ..
         mkdir -p out
-        ./build/qvm.exe 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
-        test -s out/ci-smoke.mp4
-        test -s out/thumbnail.jpeg
+        ./build/qvm 1 1 7 --translation 1 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/en-ci-smoke.mp4
+        mv out/thumbnail.jpeg out/en-thumbnail.jpeg
+        ./build/qvm 1 1 7 --translation 4 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/urd-ci-smoke.mp4
+        mv out/thumbnail.jpeg out/urd-thumbnail.jpeg
+        test -s out/en-ci-smoke.mp4
+        test -s out/en-thumbnail.jpeg
+        test -s out/urd-ci-smoke.mp4
+        test -s out/urd-thumbnail.jpeg
 
     - name: Package binary artifact
       shell: pwsh
@@ -202,8 +217,8 @@ jobs:
     - name: Package test results
       shell: pwsh
       run: |
-        mkdir artifacts\windows
-        Compress-Archive -Path out\ci-smoke.mp4,out\thumbnail.jpeg -DestinationPath artifacts\windows\qvm-test-results-windows-${{ github.run_id }}.zip
+        if (!(Test-Path artifacts\windows)) { mkdir artifacts\windows }
+        Compress-Archive -Path out\en-ci-smoke.mp4,out\en-thumbnail.jpeg,out\urd-ci-smoke.mp4,out\urd-thumbnail.jpeg -DestinationPath artifacts\windows\qvm-test-results-windows-${{ github.run_id }}.zip -Force
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
