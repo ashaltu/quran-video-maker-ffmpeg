@@ -20,7 +20,7 @@ jobs:
             VER="${TAG#v}"
             brew install ashaltu/tap/qvm@$VER || brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
           fi
-          qvm --version
+          qvm --help
       - name: Smoke render
         run: |
           mkdir -p out
@@ -48,7 +48,7 @@ jobs:
             $manifest = "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$tag/scoop-qvm.json"
           }
           scoop install $manifest
-          qvm --version
+          qvm --help
       - name: Smoke render
         shell: pwsh
         run: |
@@ -75,7 +75,7 @@ jobs:
             VER="${TAG#v}"
             brew install ashaltu/tap/qvm@$VER || brew install https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$TAG/qvm-$TAG.tar.gz
           fi
-          qvm --version
+          qvm --help
       - name: Smoke render
         run: |
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
