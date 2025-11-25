@@ -11,7 +11,7 @@ on:
         type: boolean
         default: true
       artifact_run_id:
-        description: "Run ID of cmake-cross-platform to reuse (leave empty for latest successful run)"
+        description: "Run ID of cmake-cross-platform to reuse (leave empty for latest run)"
         required: false
 
 env:
@@ -25,109 +25,82 @@ jobs:
       contents: write
 
     steps:
-    - name: Find build run
+    - name: Determine which run to use
       id: find-run
       uses: actions/github-script@v7
       with:
         script: |
           const runIdInput = "${{ github.event.inputs.artifact_run_id }}".trim();
-          let run;
+          let runId;
           
           if (runIdInput) {
             // Use the provided run ID
-            core.info(`Looking for run ID: ${runIdInput}`);
-            try {
-              const resp = await github.rest.actions.getWorkflowRun({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: parseInt(runIdInput, 10),
-              });
-              run = resp.data;
-            } catch (error) {
-              core.setFailed(`Run ID ${runIdInput} not found: ${error.message}`);
-              return;
-            }
+            runId = parseInt(runIdInput, 10);
+            core.info(`Using provided run ID: ${runId}`);
           } else {
-            // Find the latest successful cmake-cross-platform run
-            core.info("No run ID provided, finding latest successful build...");
-            const workflow = await github.rest.actions.listWorkflowRuns({
+            // Get the latest cmake-cross-platform run (regardless of status)
+            const runs = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: "cmake-cross-platform.yml",
-              status: "success",
               per_page: 1,
             });
             
-            if (!workflow.data.workflow_runs.length) {
-              core.setFailed("No successful cmake-cross-platform runs found");
+            if (!runs.data.workflow_runs.length) {
+              core.setFailed("No cmake-cross-platform runs found");
               return;
             }
             
-            run = workflow.data.workflow_runs[0];
-            core.info(`Found latest successful run: ${run.id}`);
+            runId = runs.data.workflow_runs[0].id;
+            core.info(`Using latest run ID: ${runId}`);
           }
           
-          // Verify the run was successful
-          if (run.conclusion !== "success") {
-            core.setFailed(`Run ${run.id} did not succeed (status: ${run.conclusion})`);
-            return;
-          }
-          
-          core.info(`Using artifacts from run ${run.id} (${run.html_url})`);
-          core.setOutput("run_id", run.id.toString());
-          core.setOutput("run_sha", run.head_sha);
-          
-          // Get and verify artifacts
-          const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+          // Get the run details
+          const run = await github.rest.actions.getWorkflowRun({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            run_id: run.id
+            run_id: runId,
           });
           
-          const required = ["qvm-linux", "qvm-macos", "qvm-windows"];
-          const map = new Map(artifacts.data.artifacts.map(a => [a.name, a.id]));
-          const missing = required.filter(r => !map.has(r));
-          
-          if (missing.length) {
-            core.setFailed(`Run ${run.id} is missing artifacts: ${missing.join(", ")}`);
+          // Check if it succeeded
+          if (run.data.conclusion !== "success") {
+            core.setFailed(`Run ${runId} did not succeed (status: ${run.data.conclusion}). Fix the build or specify a different run ID.`);
             return;
           }
           
-          core.setOutput("linux_id", map.get("qvm-linux").toString());
-          core.setOutput("macos_id", map.get("qvm-macos").toString());
-          core.setOutput("windows_id", map.get("qvm-windows").toString());
+          core.setOutput("run_id", runId.toString());
+          core.setOutput("run_sha", run.data.head_sha);
 
     - name: Check out source at artifact commit
       uses: actions/checkout@v4
       with:
         ref: ${{ steps.find-run.outputs.run_sha }}
 
-    - name: Download artifacts
-      run: |
-        mkdir -p artifacts/{linux,macos,windows}
-        
-        # Download Linux
-        curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github+json" \
-          -o artifacts/linux/qvm-linux.zip \
-          https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${{ steps.find-run.outputs.linux_id }}/zip
-        unzip -o artifacts/linux/qvm-linux.zip -d artifacts/linux
-        
-        # Download macOS
-        curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github+json" \
-          -o artifacts/macos/qvm-macos.zip \
-          https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${{ steps.find-run.outputs.macos_id }}/zip
-        unzip -o artifacts/macos/qvm-macos.zip -d artifacts/macos
-        
-        # Download Windows
-        curl -L -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-          -H "Accept: application/vnd.github+json" \
-          -o artifacts/windows/qvm-windows.zip \
-          https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${{ steps.find-run.outputs.windows_id }}/zip
-        unzip -o artifacts/windows/qvm-windows.zip -d artifacts/windows
+    - name: Download Linux artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: qvm-linux
+        path: artifacts/linux
+        run-id: ${{ steps.find-run.outputs.run_id }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Prepare source tarball (assets included, data excluded)
+    - name: Download macOS artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: qvm-macos
+        path: artifacts/macos
+        run-id: ${{ steps.find-run.outputs.run_id }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download Windows artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: qvm-windows
+        path: artifacts/windows
+        run-id: ${{ steps.find-run.outputs.run_id }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Prepare source tarball
       run: |
         mkdir release-src
         git archive --format=tar --prefix=qvm-${{ github.event.inputs.version }}/ HEAD | tar -xf - -C release-src
@@ -191,4 +164,3 @@ jobs:
         git add Formula/qvm.rb
         git commit -m "Update qvm to ${{ github.event.inputs.version }}"
         git push
-        
