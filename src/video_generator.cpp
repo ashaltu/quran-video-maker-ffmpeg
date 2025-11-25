@@ -147,6 +147,11 @@ void runCommandWithProgress(const std::string& command, double totalDurationSeco
 
 } // namespace
 
+// Normalize paths for ffmpeg arguments to avoid backslash escape issues on Windows.
+static std::string to_ffmpeg_path(const fs::path& p) {
+    return p.generic_string();
+}
+
 void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& config, const std::vector<VerseData>& verses) {
     try {
         std::cout << "\n=== Starting Video Rendering ===" << std::endl;
@@ -157,6 +162,8 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
         std::cout << "Generating subtitles..." << std::endl;
         if (options.emitProgress) emitStageMessage("subtitles", "running", "Generating subtitles");
         std::string ass_filename = SubtitleBuilder::buildAssFile(config, options, verses, intro_duration, pause_after_intro_duration);
+        std::string ass_ffmpeg_path = to_ffmpeg_path(fs::path(ass_filename));
+        std::string fonts_ffmpeg_path = to_ffmpeg_path(fs::absolute(config.assetFolderPath) / "fonts");
         if (options.emitProgress) emitStageMessage("subtitles", "completed", "Subtitles generated");
 
         double verses_duration = 0.0;
@@ -188,7 +195,7 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
             filter_spec << ",drawbox=x=0:y=0:w=iw:h=ih:color=" << config.overlayColor << ":t=fill";
         }
         
-        filter_spec << ",ass='" << ass_filename << "':fontsdir='" << fs::absolute(config.assetFolderPath).string() + "/fonts" << "'[v]";
+        filter_spec << ",ass='" << ass_ffmpeg_path << "':fontsdir='" << fonts_ffmpeg_path << "'[v]";
 
         std::ostringstream video_codec;
         if (options.encoder == "hardware") {
@@ -247,12 +254,12 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
             total_duration = intro_duration + pause_after_intro_duration + audioDuration;
             
             final_cmd
-                      << "-stream_loop -1 -i \"" << config.assetBgVideo << "\" "
+                      << "-stream_loop -1 -i \"" << to_ffmpeg_path(config.assetBgVideo) << "\" "
                       << "-f lavfi -t " << (intro_duration + pause_after_intro_duration) << " -i anullsrc=r=44100:cl=stereo ";
             if (!customClip) {
                 final_cmd << "-ss " << startTime << " -t " << trimmedDuration << " ";
             }
-            final_cmd << "-i \"" << audioPath << "\" "
+            final_cmd << "-i \"" << to_ffmpeg_path(audioPath) << "\" "
                       << "-filter_complex \""
                       << "[0:v]setpts=PTS-STARTPTS,scale=" << config.width << ":" << config.height;
             
@@ -260,8 +267,8 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
                 final_cmd << ",drawbox=x=0:y=0:w=iw:h=ih:color=" << config.overlayColor << ":t=fill";
             }
             
-            final_cmd << ",ass='" << ass_filename << "':fontsdir='" 
-                      << fs::absolute(config.assetFolderPath).string() + "/fonts" << "'[v];"
+            final_cmd << ",ass='" << ass_ffmpeg_path << "':fontsdir='" 
+                      << fonts_ffmpeg_path << "'[v];"
                       << "[1:a][2:a]concat=n=2:v=0:a=1[a]\" "
                       << "-map \"[v]\" -map \"[a]\" "
                       << "-t " << total_duration << " ";
@@ -272,7 +279,7 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
                 std::ofstream concat_file(concat_file_path);
                 if (!concat_file.is_open()) throw std::runtime_error("Failed to create audio list file.");
                 for (const auto& verse : verses) {
-                    concat_file << "file '" << fs::absolute(verse.localAudioPath).string() << "'\n";
+                    concat_file << "file '" << to_ffmpeg_path(fs::absolute(verse.localAudioPath)) << "'\n";
                 }
             }
             
@@ -281,9 +288,9 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
             total_duration = totalVideoDuration;
             
             final_cmd
-                      << "-i \"" << config.assetBgVideo << "\" "
+                      << "-i \"" << to_ffmpeg_path(config.assetBgVideo) << "\" "
                       << "-itsoffset " << (intro_duration + pause_after_intro_duration) << " "
-                      << "-f concat -safe 0 -i \"" << concat_file_path << "\" "
+                      << "-f concat -safe 0 -i \"" << to_ffmpeg_path(concat_file_path) << "\" "
                       << "-filter_complex \"" << filter_spec.str() << "\" "
                       << "-map \"[v]\" -map 1:a "
                       << "-t " << totalVideoDuration << " ";
@@ -391,13 +398,13 @@ void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfi
                 
         ass_file.close();
 
-        std::string fonts_dir = fs::absolute(config.assetFolderPath).string() + "/fonts";
+        std::string fonts_dir = to_ffmpeg_path(fs::absolute(config.assetFolderPath) / "fonts");
 
         std::stringstream cmd;
         cmd << "ffmpeg -y "
             << "-ss 0 "
-            << "-i \"" << config.assetBgVideo << "\" "
-            << "-vf \"ass='" << ass_path.string() << "':fontsdir='" << fonts_dir << "'\" "
+            << "-i \"" << to_ffmpeg_path(config.assetBgVideo) << "\" "
+            << "-vf \"ass='" << to_ffmpeg_path(ass_path) << "':fontsdir='" << fonts_dir << "'\" "
             << "-frames:v 1 "
             << "-q:v 2 "
             << "\"" << thumbnail_path << "\"";
