@@ -1,4 +1,4 @@
-name: Release (reuse CI artifacts)
+name: Release
 
 on:
   workflow_dispatch:
@@ -10,6 +10,9 @@ on:
         description: "Is this a prerelease?"
         type: boolean
         default: true
+      artifact_run_id:
+        description: "Optional run ID of cmake-cross-platform to reuse (defaults to latest success on this commit)"
+        required: false
 
 env:
   BUILD_DIR: build
@@ -24,11 +27,17 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Find latest successful cmake-cross-platform run for this commit
+    - name: Resolve cmake-cross-platform run
       id: find-run
       uses: actions/github-script@v7
       with:
         script: |
+          const override = core.getInput("artifact_run_id");
+          if (override) {
+            core.setOutput("run_id", override.trim());
+            core.info(`Using provided run id ${override}`);
+            return;
+          }
           const workflow = "cmake-cross-platform.yml";
           const headSha = context.sha;
           const runs = await github.rest.actions.listWorkflowRuns({
@@ -47,26 +56,56 @@ jobs:
           core.setOutput("run_url", run.html_url);
           core.info(`Using artifacts from run ${run.id} (${run.html_url})`);
 
-    - name: Download platform artifacts
+    - name: Verify expected artifacts exist
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const runId = "${{ steps.find-run.outputs.run_id }}";
+          const required = ["qvm-linux", "qvm-macos", "qvm-windows"];
+          const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            run_id: parseInt(runId, 10)
+          });
+          const found = artifacts.data.artifacts.map(a => a.name);
+          const missing = required.filter(r => !found.includes(r));
+          if (missing.length) {
+            core.setFailed(`Missing artifacts on run ${runId}: ${missing.join(", ")}. Ensure cmake-cross-platform completed successfully for this commit.`);
+          } else {
+            core.info(`Artifacts present: ${found.join(", ")}`);
+          }
+          core.setOutput("found", found.join(","));
+          core.info(`Artifacts found on run ${runId}: ${found.join(", ")}`);
+
+    - name: Download platform artifacts (Linux)
       uses: actions/download-artifact@v4
       with:
         name: qvm-linux
         run-id: ${{ steps.find-run.outputs.run_id }}
+        repository: ${{ github.repository }}
         path: artifacts/linux
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        if-no-artifact-found: error
 
     - name: Download platform artifacts (macOS)
       uses: actions/download-artifact@v4
       with:
         name: qvm-macos
         run-id: ${{ steps.find-run.outputs.run_id }}
+        repository: ${{ github.repository }}
         path: artifacts/macos
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        if-no-artifact-found: error
 
     - name: Download platform artifacts (Windows)
       uses: actions/download-artifact@v4
       with:
         name: qvm-windows
         run-id: ${{ steps.find-run.outputs.run_id }}
+        repository: ${{ github.repository }}
         path: artifacts/windows
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        if-no-artifact-found: error
 
     - name: Prepare source tarball (assets included, data excluded)
       run: |
