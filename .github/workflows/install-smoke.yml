@@ -59,16 +59,20 @@ jobs:
       - name: Smoke render
         shell: pwsh
         run: |
+          $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          qvm 1 1 7 --output out\smoke.mp4  2>&1 | Write-Host
-          
-          if (!(Test-Path out\smoke.mp4) -or (Get-Item out\smoke.mp4).Length -eq 0) {
-            throw 'Video missing or empty'
+          Write-Host "Listing data directory (if present):"
+          Get-ChildItem "$env:USERPROFILE\scoop\persist\scoop-qvm\data" -Recurse -ErrorAction SilentlyContinue
+
+          $qvmLog = "qvm.log"
+          qvm 1 1 7 --output out\smoke.mp4 2>&1 | Tee-Object -FilePath $qvmLog
+          if ($LASTEXITCODE -ne 0) {
+            Get-Content $qvmLog
+            throw "qvm failed with exit code $LASTEXITCODE"
           }
-          if (!(Test-Path out\thumbnail.jpeg) -or (Get-Item out\thumbnail.jpeg).Length -eq 0) {
-            throw 'Thumbnail missing or empty'
-          }
-          
+          if (!(Test-Path out\smoke.mp4) -or (Get-Item out\smoke.mp4).Length -eq 0) { throw 'Video missing or empty' }
+          if (!(Test-Path out\thumbnail.jpeg) -or (Get-Item out\thumbnail.jpeg).Length -eq 0) { throw 'Thumbnail missing or empty' }
+          Get-Content $qvmLog
           Write-Host "✓ Smoke test passed"
 
   linux-brew:
