@@ -25,6 +25,9 @@
     "if (Test-Path $link) { Remove-Item $link -Recurse -Force }",
     "New-Item -ItemType Junction -Path $link -Target $persistData | Out-Null"
   ],
+  "pre_install": [
+    "if (!(Test-Path \"$dir\\_tmp\")) { New-Item -ItemType Directory -Force -Path \"$dir\\_tmp\" | Out-Null }"
+  ],
   "checkver": {
     "github": "https://github.com/ashaltu/quran-video-maker-ffmpeg"
   },

@@ -50,6 +50,7 @@ jobs:
           }
           $tmp = Join-Path $env:TEMP "scoop-qvm.json"
           Invoke-WebRequest $manifest -OutFile $tmp
+          # Patch any accidental double-v in the URL
           (Get-Content $tmp) -replace "download/vv", "download/v" | Set-Content $tmp
           scoop install $tmp
       - name: Smoke render
