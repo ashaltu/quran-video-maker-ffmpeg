@@ -94,3 +94,54 @@ jobs:
         ./build/qvm 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
         test -s out/ci-smoke.mp4
         test -s out/thumbnail.jpeg
+
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download test data
+      shell: pwsh
+      run: curl.exe -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
+
+    - name: Install dependencies (vcpkg + ffmpeg CLI)
+      shell: pwsh
+      run: |
+        choco install -y ninja ffmpeg
+        $env:VCPKG_ROOT="C:\vcpkg"
+        $triplet="x64-windows"
+        & "$env:VCPKG_ROOT\vcpkg.exe" install ffmpeg freetype harfbuzz cpr nlohmann-json pkgconf --triplet $triplet
+
+    - name: Configure CMake
+      shell: pwsh
+      run: |
+        $env:VCPKG_ROOT="C:\vcpkg"
+        $triplet="x64-windows"
+        $pkgconf="$env:VCPKG_ROOT\installed\$triplet\tools\pkgconf\pkgconf.exe"
+        $env:PKG_CONFIG_PATH="$env:VCPKG_ROOT\installed\$triplet\lib\pkgconfig;$env:VCPKG_ROOT\installed\$triplet\share\pkgconfig"
+        cmake -B $env:BUILD_DIR `
+          -G "Ninja" `
+          -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+          -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake `
+          -DVCPKG_TARGET_TRIPLET=$triplet `
+          -DPKG_CONFIG_EXECUTABLE="$pkgconf" `
+          -DFETCHCONTENT_QUIET=OFF `
+          -S $env:GITHUB_WORKSPACE
+
+    - name: Build
+      run: cmake --build ${{ env.BUILD_DIR }} --config ${{ env.BUILD_TYPE }}
+
+    - name: Extract test data
+      run: tar -xf data.tar
+
+    - name: Test
+      shell: pwsh
+      run: |
+        cd $env:BUILD_DIR
+        ctest --build-config $env:BUILD_TYPE --rerun-failed --output-on-failure
+        cd ..
+        New-Item -ItemType Directory -Force -Path out | Out-Null
+        ./build/qvm.exe 1 1 7 --reciter 2 --translation 1 --quality-profile speed --width 640 --height 360 --output out/ci-smoke.mp4
+        if (!(Test-Path out/ci-smoke.mp4) -or (Get-Item out/ci-smoke.mp4).Length -eq 0) { throw "Video missing or empty" }
+        if (!(Test-Path out/thumbnail.jpeg) -or (Get-Item out/thumbnail.jpeg).Length -eq 0) { throw "Thumbnail missing or empty" }
