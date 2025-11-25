@@ -48,7 +48,10 @@ jobs:
           } else {
             $manifest = "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/$tag/scoop-qvm.json"
           }
-          scoop install $manifest
+          $tmp = Join-Path $env:TEMP "scoop-qvm.json"
+          Invoke-WebRequest $manifest -OutFile $tmp
+          (Get-Content $tmp) -replace "download/vv", "download/v" | Set-Content $tmp
+          scoop install $tmp
       - name: Smoke render
         shell: pwsh
         run: |
