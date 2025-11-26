@@ -103,34 +103,16 @@ jobs:
           $appRoot = "$env:USERPROFILE\scoop\apps\scoop-qvm\current"
           $dataRoot = Join-Path $appRoot 'share/quran-video-maker'
 
-          $candidateBundles = @(
-            "C:\Program Files\Git\mingw64\ssl\certs\ca-bundle.crt",
-            "C:\Program Files\Git\usr\ssl\certs\ca-bundle.crt"
-          )
-          $bundle = $candidateBundles | Where-Object { Test-Path $_ } | Select-Object -First 1
-          if ($bundle) {
+          $bundle = Join-Path $dataRoot 'cacert.pem'
+          if (Test-Path $bundle) {
             $env:CURL_CA_BUNDLE = $bundle
             $env:SSL_CERT_FILE = $bundle
             Write-Host "Using CA bundle: $bundle"
           } else {
-            Write-Host "CA bundle not found in default locations; proceeding without explicit bundle"
+            Write-Host "CA bundle not found at $bundle"
           }
 
           Write-Host "Data root: $dataRoot"
-          $cacheRoot = if ($env:QVM_CACHE_DIR) { $env:QVM_CACHE_DIR } else { Join-Path $env:LOCALAPPDATA 'quran-video-maker' }
-          $audioDir = Join-Path $cacheRoot 'audio'
-          New-Item -ItemType Directory -Force -Path $audioDir | Out-Null
-
-          Write-Host "Prefetching audio into cache: $audioDir"
-          $ProgressPreference = 'SilentlyContinue'
-          for ($v = 1; $v -le 7; $v++) {
-            $fileId = ('{0:D3}{1:D3}' -f 1, $v)
-            $url = "https://audio-cdn.tarteel.ai/quran/minshawyMurattal/$fileId.mp3"
-            $label = "1:$v`_r17.mp3"
-            $dest = Join-Path $audioDir ($label -replace '[^0-9A-Za-z]', '_')
-            Write-Host "  - $url -> $dest"
-            Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
-          }
 
           New-Item -ItemType Directory -Force -Path out | Out-Null
           Write-Host "Running qvm..."
