@@ -168,6 +168,12 @@ jobs:
       shell: msys2 {0}
       run: cmake --build build --config Release
 
+    - name: Copy all runtime dependencies
+      shell: msys2 {0}
+      run: |
+        cd build
+        ldd qvm.exe | grep ucrt64 | awk '{print $3}' | xargs -I {} cp {} .
+        
     - name: Package with CPack
       shell: msys2 {0}
       run: |
