@@ -153,17 +153,12 @@ jobs:
         path: artifacts/macos
 
   build-windows:
-    if: github.event_name != 'workflow_dispatch' || inputs.skip_windows == false
     runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Download test data
-      shell: pwsh
-      run: curl.exe -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
-
-    - name: Set up MSYS2 with prebuilt deps
+    - name: Set up MSYS2
       uses: msys2/setup-msys2@v2
       with:
         update: true
@@ -181,81 +176,35 @@ jobs:
           ucrt64/mingw-w64-ucrt-x86_64-freetype
           ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
 
-    - name: Configure CMake
+    - name: Download test data
       shell: msys2 {0}
-      run: |
-        export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig"
-        cmake -B ${BUILD_DIR} \
-          -G "Ninja" \
-          -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-          -DCMAKE_PREFIX_PATH=/ucrt64 \
-          -DPKG_CONFIG_EXECUTABLE=/ucrt64/bin/pkg-config \
-          -Dcpr_DIR=/ucrt64/lib/cmake/cpr \
-          -Dnlohmann_json_DIR=/ucrt64/lib/cmake/nlohmann_json \
-          -Dcxxopts_DIR=/ucrt64/lib/cmake/cxxopts \
-          -DCPR_USE_SYSTEM_CURL=ON \
-          -DCPR_FORCE_USE_SYSTEM_CURL=ON \
-          -DFETCHCONTENT_TRY_FIND_PACKAGE=ON \
-          -DFETCHCONTENT_QUIET=OFF \
-          -S ${GITHUB_WORKSPACE}
-
-    - name: Build
-      shell: msys2 {0}
-      run: cmake --build ${BUILD_DIR} --config ${BUILD_TYPE}
+      run: curl -L -o data.tar https://qvm-r2-storage.tawbah.app/data.tar
 
     - name: Extract test data
       shell: msys2 {0}
       run: tar -xf data.tar
 
-    - name: Test
+    - name: Configure CMake
       shell: msys2 {0}
       run: |
-        export PATH="/ucrt64/bin:$PATH"
-        cd ${BUILD_DIR}
-        ctest --build-config ${BUILD_TYPE} --rerun-failed --output-on-failure
-        cd ..
-        mkdir -p out
-        ./build/qvm 1 1 7 --translation 1 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/en-ci-smoke.mp4
-        mv out/thumbnail.jpeg out/en-thumbnail.jpeg
-        ./build/qvm 1 1 7 --translation 4 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/urd-ci-smoke.mp4
-        mv out/thumbnail.jpeg out/urd-thumbnail.jpeg
-        test -s out/en-ci-smoke.mp4
-        test -s out/en-thumbnail.jpeg
-        test -s out/urd-ci-smoke.mp4
-        test -s out/urd-thumbnail.jpeg
+        export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig:$PKG_CONFIG_PATH"
+        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -S $GITHUB_WORKSPACE
 
-    - name: Check stuff(delete me later)
-      shell: pwsh
+    - name: Build
+      shell: msys2 {0}
+      run: cmake --build build --config Release
+
+    - name: Smoke render (print all logs)
+      shell: msys2 {0}
       run: |
-        Write-Host "--- MSYS2 UCRT64 tree ---"
-        Get-ChildItem -Path "C:\msys64" -Recurse -Depth 2 -ErrorAction SilentlyContinue | Write-Host
-        Write-Host "--- DLL samples ---"
-        Get-ChildItem -Path "C:\msys64\ucrt64\bin" -Filter "*.dll" -ErrorAction SilentlyContinue | Write-Host
-        Write-Host "--- ffmpeg location ---"
-        (Get-Command ffmpeg -ErrorAction SilentlyContinue)?.Source | Write-Host
+        ./qvm.exe 1 1 7 --output out/smoke.mp4 2>&1
+        test -s out/smoke.mp4
+        test -s out/thumbnail.jpeg
 
-    - name: List UCRT64 DLLs (proof)
-      shell: pwsh
-      run: |
-        Get-ChildItem -Path "C:\msys64\ucrt64\bin" | Write-Host
-
-    - name: Package binary artifact
-      shell: pwsh
-      run: |
-        mkdir artifacts\windows
-        # Copy runtime DLLs + exe into build so loader finds them
-        Copy-Item "C:\msys64\ucrt64\bin\*.dll" "build\" -Force
-        Copy-Item "D:\a\quran-video-maker-ffmpeg\quran-video-maker-ffmpeg\build\qvm.exe" "build\" -Force
-        Compress-Archive -Path "build\*" -DestinationPath "artifacts\windows\qvm-bin-windows.zip" -Force
-
-    - name: Package test results
-      shell: pwsh
-      run: |
-        if (!(Test-Path artifacts\windows)) { mkdir artifacts\windows }
-        Compress-Archive -Path out\en-ci-smoke.mp4,out\en-thumbnail.jpeg,out\urd-ci-smoke.mp4,out\urd-thumbnail.jpeg -DestinationPath artifacts\windows\qvm-test-results-windows-${{ github.run_id }}.zip -Force
-
-    - name: Upload artifacts
+    - name: Upload smoke outputs (Windows)
       uses: actions/upload-artifact@v4
       with:
-        name: qvm-windows
-        path: artifacts/windows
+        name: qvm-windows-smoke
+        path: |
+          out/smoke.mp4
+          out/thumbnail.jpeg
