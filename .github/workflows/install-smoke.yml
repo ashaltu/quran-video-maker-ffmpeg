@@ -117,6 +117,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path out | Out-Null
           $qvmLog = Join-Path $appRoot "qvm.log"
           
+          Copy-Item "$env:USERPROFILE\scoop\apps\scoop-qvm\current\*.dll" "$env:USERPROFILE\scoop\apps\scoop-qvm\current" -Force
           & .\qvm.exe 1 1 7 --output out\smoke.mp4 2>&1 | Tee-Object -FilePath $qvmLog
           
           if ($LASTEXITCODE -ne 0) {

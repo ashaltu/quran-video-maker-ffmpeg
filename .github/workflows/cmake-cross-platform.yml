@@ -228,7 +228,8 @@ jobs:
       shell: pwsh
       run: |
         mkdir artifacts\windows
-        Compress-Archive -Path build\qvm.exe,config.json,assets,LICENSE,README.md -DestinationPath artifacts\windows\qvm-bin-windows.zip
+        Copy-Item "$env:USERPROFILE\msys64\ucrt64\bin\*.dll" "$BUILD_DIR" -Force
+        Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath artifacts\windows\qvm-bin-windows.zip -Force
 
     - name: Package test results
       shell: pwsh
