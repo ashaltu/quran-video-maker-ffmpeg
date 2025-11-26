@@ -14,5 +14,11 @@
   "autoupdate": {
     "url": "https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/v$version/qvm-$version-win64.zip",
     "extract_dir": "qvm-$version-win64"
-  }
+  },
+  "env_add_path": "bin",
+  "persist": ["cache", "bin"],
+  "env_set": { "QVM_CACHE_DIR": "$env:LOCALAPPDATA\\QVM\\cache" },
+  "post_install": [
+    "mkdir \"$env:LOCALAPPDATA\\QVM\\cache\" -ErrorAction SilentlyContinue"
+  ]
 }
