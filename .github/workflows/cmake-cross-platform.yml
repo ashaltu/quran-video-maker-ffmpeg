@@ -234,11 +234,18 @@ jobs:
         Write-Host "--- ffmpeg location ---"
         (Get-Command ffmpeg -ErrorAction SilentlyContinue)?.Source | Write-Host
 
+    - name: List UCRT64 DLLs (proof)
+      shell: pwsh
+      run: |
+        Get-ChildItem -Path "C:\msys64\ucrt64\bin" | Write-Host
+
     - name: Package binary artifact
       shell: pwsh
       run: |
         mkdir artifacts\windows
+        # Copy runtime DLLs + exe into build so loader finds them
         Copy-Item "C:\msys64\ucrt64\bin\*.dll" "build\" -Force
+        Copy-Item "D:\a\quran-video-maker-ffmpeg\quran-video-maker-ffmpeg\build\qvm.exe" "build\" -Force
         Compress-Archive -Path "build\*" -DestinationPath "artifacts\windows\qvm-bin-windows.zip" -Force
 
     - name: Package test results
