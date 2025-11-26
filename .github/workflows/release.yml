@@ -173,15 +173,12 @@ jobs:
       run: |
         cd build
         cpack -G ZIP
-        cpack -G NSIS
 
     - name: Upload Windows packages
       uses: actions/upload-artifact@v4
       with:
         name: qvm-windows-release
-        path: |
-          build/qvm-*.zip
-          build/qvm-*.exe
+        path: build/qvm-*.zip
 
   release:
     needs: [build-linux, build-macos, build-windows]
