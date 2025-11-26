@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(QuranVideoMakerFFmpeg CXX)
 set(CPACK_PACKAGE_NAME "qvm")
-set(CPACK_PACKAGE_VERSION "0.1.2")
+set(CPACK_PACKAGE_VERSION "0.0.0")
 set(CPACK_PACKAGE_VENDOR "ashaltu")
 set(CPACK_GENERATOR "ZIP;NSIS")
 set(CPACK_NSIS_PACKAGE_NAME "qvm")
