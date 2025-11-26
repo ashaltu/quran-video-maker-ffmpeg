@@ -19,10 +19,18 @@
   "persist": ["cache", "bin"],
   "env_set": {
     "QVM_CACHE_DIR": "$env:LOCALAPPDATA\\QVM\\cache",
-    "CURL_CA_BUNDLE": "$env:USERPROFILE\\scoop\\apps\\scoop-qvm\\current\\etc\\ssl\\certs\\ca-bundle.crt",
+    "CURL_CA_BUNDLE": "$dir\\etc\\ssl\\certs\\ca-bundle.crt",
     "CURL_SSL_BACKEND": "schannel"
   },
   "post_install": [
-    "mkdir \"$env:LOCALAPPDATA\\QVM\\cache\" -ErrorAction SilentlyContinue"
+    "mkdir \"$env:LOCALAPPDATA\\QVM\\cache\" -ErrorAction SilentlyContinue",
+    "$certDir = Join-Path \"$dir\" 'etc/ssl/certs'",
+    "New-Item -ItemType Directory -Force -Path $certDir | Out-Null",
+    "$caBundle = Join-Path $certDir 'ca-bundle.crt'",
+    "try {",
+    "  Invoke-WebRequest -Uri 'https://curl.se/ca/cacert.pem' -OutFile $caBundle -ErrorAction Stop",
+    "} catch {",
+    "  Write-Host \"Warning: failed to refresh CA bundle: $_\"",
+    "}"
   ]
 }

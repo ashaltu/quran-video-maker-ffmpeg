@@ -100,24 +100,6 @@ jobs:
       - name: Smoke render
         shell: pwsh
         run: |
-          $appRoot = "$env:USERPROFILE\scoop\apps\scoop-qvm\current"
-          $dataRoot = Join-Path $appRoot 'share/quran-video-maker'
-
-          Write-Host "Data root: $dataRoot"
-
-          # Ensure curl has a CA bundle (old releases used OpenSSL and expect this path).
-          $certDir = Join-Path $appRoot 'etc/ssl/certs'
-          New-Item -ItemType Directory -Force -Path $certDir | Out-Null
-          $caBundle = Join-Path $certDir 'ca-bundle.crt'
-          try {
-            Invoke-WebRequest -Uri 'https://curl.se/ca/cacert.pem' -OutFile $caBundle -ErrorAction Stop
-          } catch {
-            Write-Host "Warning: failed to refresh CA bundle: $_"
-          }
-          $env:CURL_CA_BUNDLE = $caBundle
-          $env:CURL_SSL_BACKEND = 'schannel'
-
-          New-Item -ItemType Directory -Force -Path out | Out-Null
           Write-Host "Running qvm..."
           qvm 1 1 7 --output out/smoke.mp4 2>&1 | Tee-Object -Variable output
           Write-Host "Exit code: $LASTEXITCODE"
