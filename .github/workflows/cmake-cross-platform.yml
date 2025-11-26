@@ -227,9 +227,14 @@ jobs:
     - name: Package binary artifact
       shell: pwsh
       run: |
+        $buildDir = Join-Path $env:GITHUB_WORKSPACE $env:BUILD_DIR
         mkdir artifacts\windows
-        Copy-Item "$env:USERPROFILE\msys64\ucrt64\bin\*.dll" "$BUILD_DIR" -Force
-        Compress-Archive -Path "$BUILD_DIR\*" -DestinationPath artifacts\windows\qvm-bin-windows.zip -Force
+
+        # Copy MSYS2 UCRT64 runtime DLLs next to qvm.exe
+        Copy-Item "$env:GITHUB_WORKSPACE\msys64\ucrt64\bin\*.dll" $buildDir -Force
+
+        Compress-Archive -Path "$buildDir\*" `
+          -DestinationPath artifacts\windows\qvm-bin-windows.zip -Force
 
     - name: Package test results
       shell: pwsh
