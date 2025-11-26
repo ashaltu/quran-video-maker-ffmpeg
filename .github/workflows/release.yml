@@ -140,11 +140,19 @@ jobs:
     - name: Collect release files
       id: collect
       run: |
-        FILES="qvm-${{ github.event.inputs.version }}.tar.gz"
-        if ${{ inputs.upload_linux_artifacts }}; then FILES="$FILES artifacts/linux/qvm-bin-linux.zip"; fi
-        if ${{ inputs.upload_macos_artifacts }}; then FILES="$FILES artifacts/macos/qvm-bin-macos.zip"; fi
-        if ${{ inputs.upload_windows_artifacts }}; then FILES="$FILES artifacts/windows/qvm-bin-windows.zip scoop-qvm.json"; fi
-        echo "files=$FILES" >> $GITHUB_OUTPUT
+        echo "files<<EOF" >> $GITHUB_OUTPUT
+        echo "qvm-${{ github.event.inputs.version }}.tar.gz" >> $GITHUB_OUTPUT
+        if ${{ inputs.upload_linux_artifacts }}; then
+          echo "artifacts/linux/qvm-bin-linux.zip" >> $GITHUB_OUTPUT
+        fi
+        if ${{ inputs.upload_macos_artifacts }}; then
+          echo "artifacts/macos/qvm-bin-macos.zip" >> $GITHUB_OUTPUT
+        fi
+        if ${{ inputs.upload_windows_artifacts }}; then
+          echo "artifacts/windows/qvm-bin-windows.zip" >> $GITHUB_OUTPUT
+          echo "scoop-qvm.json" >> $GITHUB_OUTPUT
+        fi
+        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Publish GitHub Release
       uses: softprops/action-gh-release@v2
