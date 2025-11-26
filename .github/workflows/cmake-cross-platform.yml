@@ -32,7 +32,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Download test data
+    - name: Download data.tar
       run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
     - name: Install build deps
@@ -54,7 +54,7 @@ jobs:
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
 
-    - name: Extract test data
+    - name: Extract data.tar
       run: tar -xf data.tar
 
     - name: Test
@@ -89,7 +89,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Download test data
+    - name: Download data.tar
       run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
     - name: Install FFmpeg dependencies
@@ -112,7 +112,7 @@ jobs:
     - name: Build
       run: cmake --build $BUILD_DIR --config $BUILD_TYPE
 
-    - name: Extract test data
+    - name: Extract data.tar
       run: tar -xf data.tar
 
     - name: Test

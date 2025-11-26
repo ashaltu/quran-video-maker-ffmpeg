@@ -81,7 +81,6 @@ jobs:
             Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
           }
           
-          # Add Scoop to PATH for subsequent steps
           $scoopPath = "$env:USERPROFILE\scoop\shims"
           echo "$scoopPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
@@ -101,39 +100,12 @@ jobs:
       - name: Smoke render
         shell: pwsh
         run: |
-          $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
-          $qvmExe = (Get-Command qvm).Source
-          Write-Host "qvm exe: $qvmExe"
-          
-          $appRoot = "$env:USERPROFILE\scoop\apps\scoop-qvm\current"
-          $persistRoot = "$env:USERPROFILE\scoop\persist\scoop-qvm"
-          Write-Host "app root: $appRoot"
-          Write-Host "persist root: $persistRoot"
-
-          Set-Location $appRoot
-
-          New-Item -ItemType Directory -Force -Path out | Out-Null
-          $qvmLog = Join-Path $appRoot "qvm.log"
-          
-          .\qvm.exe 1 1 7 --output out\smoke.mp4 2>&1 | Tee-Object -FilePath $qvmLog
-          
-          if ($LASTEXITCODE -ne 0) {
-            if (Test-Path $qvmLog) {
-              Write-Host "=== qvm.log contents ==="
-              Get-Content $qvmLog
-            }
-            throw "qvm failed with exit code $LASTEXITCODE"
-          }
-          
-          if (!(Test-Path out\smoke.mp4) -or (Get-Item out\smoke.mp4).Length -eq 0) {
+          mkdir -p out
+          qvm 1 1 7 --output out/smoke.mp4
+          if (!(Test-Path out/smoke.mp4) -or (Get-Item out/smoke.mp4).Length -eq 0) {
             throw 'Video missing or empty'
           }
-          if (!(Test-Path out\thumbnail.jpeg) -or (Get-Item out\thumbnail.jpeg).Length -eq 0) {
+          if (!(Test-Path out/thumbnail.jpeg) -or (Get-Item out/thumbnail.jpeg).Length -eq 0) {
             throw 'Thumbnail missing or empty'
-          }
-          
-          if (Test-Path $qvmLog) {
-            Write-Host "=== qvm.log contents ==="
-            Get-Content $qvmLog
           }
           Write-Host "✓ Smoke test passed"

@@ -10,123 +10,229 @@ on:
         description: "Is this a prerelease?"
         type: boolean
         default: false
-      artifact_run_id:
-        description: "Run ID of cmake-cross-platform to reuse (leave empty for latest run)"
-        required: false
-      upload_linux_artifacts:
-        description: 'Upload Linux artifacts'
+      build_linux:
+        description: 'Build and upload Linux artifacts'
         type: boolean
-        default: false
-      upload_macos_artifacts:
-        description: 'Upload macOS artifacts'
+        default: true
+      build_macos:
+        description: 'Build and upload macOS artifacts'
         type: boolean
-        default: false
-      upload_windows_artifacts:
-        description: 'Upload Windows artifacts'
+        default: true
+      build_windows:
+        description: 'Build and upload Windows artifacts'
         type: boolean
-        default: false
+        default: true
 
 env:
   BUILD_DIR: build
   BUILD_TYPE: Release
 
 jobs:
+  build-linux:
+    if: ${{ inputs.build_linux }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download data.tar
+      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
+
+    - name: Extract data.tar
+      run: tar -xf data.tar
+
+    - name: Install build deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libavformat-dev libavcodec-dev libavfilter-dev \
+          libavutil-dev libswscale-dev \
+          libfreetype6-dev libharfbuzz-dev
+
+    - name: Configure CMake
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        VER_NO_V="${VERSION#v}"
+        cmake -B $BUILD_DIR \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DCPACK_PACKAGE_VERSION="$VER_NO_V" \
+          -DFETCHCONTENT_QUIET=OFF \
+          -S ${{ github.workspace }}
+
+    - name: Build
+      run: cmake --build $BUILD_DIR --config $BUILD_TYPE
+
+    - name: Package with CPack
+      run: |
+        cd $BUILD_DIR
+        cpack -G ZIP
+
+    - name: Upload Linux package
+      uses: actions/upload-artifact@v4
+      with:
+        name: qvm-linux-release
+        path: build/qvm-*.zip
+
+  build-macos:
+    if: ${{ inputs.build_macos }}
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download data.tar
+      run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
+
+    - name: Extract data.tar
+      run: tar -xf data.tar
+
+    - name: Install FFmpeg dependencies
+      run: |
+        brew update
+        brew install ffmpeg freetype harfbuzz
+
+    - name: Export FFmpeg pkgconfig paths (macOS)
+      run: |
+        export PKG_CONFIG_PATH="/opt/homebrew/opt/ffmpeg/lib/pkgconfig:/usr/local/opt/ffmpeg/lib/pkgconfig:$PKG_CONFIG_PATH"
+        echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+
+    - name: Configure CMake
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        VER_NO_V="${VERSION#v}"
+        cmake -B $BUILD_DIR \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DCPACK_PACKAGE_VERSION="$VER_NO_V" \
+          -DFETCHCONTENT_QUIET=OFF \
+          -S ${{ github.workspace }}
+
+    - name: Build
+      run: cmake --build $BUILD_DIR --config $BUILD_TYPE
+
+    - name: Package with CPack
+      run: |
+        cd $BUILD_DIR
+        cpack -G ZIP
+
+    - name: Upload macOS package
+      uses: actions/upload-artifact@v4
+      with:
+        name: qvm-macos-release
+        path: build/qvm-*.zip
+
+  build-windows:
+    if: ${{ inputs.build_windows }}
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        msystem: UCRT64
+        install: >-
+          ucrt64/mingw-w64-ucrt-x86_64-gcc
+          ucrt64/mingw-w64-ucrt-x86_64-pkgconf
+          ucrt64/mingw-w64-ucrt-x86_64-cmake
+          ucrt64/mingw-w64-ucrt-x86_64-ninja
+          ucrt64/mingw-w64-ucrt-x86_64-curl
+          ucrt64/mingw-w64-ucrt-x86_64-cpr
+          ucrt64/mingw-w64-ucrt-x86_64-nlohmann-json
+          ucrt64/mingw-w64-ucrt-x86_64-cxxopts
+          ucrt64/mingw-w64-ucrt-x86_64-ffmpeg
+          ucrt64/mingw-w64-ucrt-x86_64-freetype
+          ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
+
+    - name: Download data.tar
+      shell: msys2 {0}
+      run: curl -L -o data.tar https://qvm-r2-storage.tawbah.app/data.tar
+
+    - name: Extract data.tar
+      shell: msys2 {0}
+      run: tar -xf data.tar
+
+    - name: Configure CMake
+      shell: msys2 {0}
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        VER_NO_V="${VERSION#v}"
+        export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig:$PKG_CONFIG_PATH"
+        cmake -B build -G "Ninja" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCPACK_PACKAGE_VERSION="$VER_NO_V" \
+          -S $GITHUB_WORKSPACE
+
+    - name: Build
+      shell: msys2 {0}
+      run: cmake --build build --config Release
+
+    - name: Package with CPack
+      shell: msys2 {0}
+      run: |
+        cd build
+        cpack -G ZIP
+        cpack -G NSIS
+
+    - name: Upload Windows packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: qvm-windows-release
+        path: |
+          build/qvm-*.zip
+          build/qvm-*.exe
+
   release:
+    needs: [build-linux, build-macos, build-windows]
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-    - name: Determine which run to use
-      id: find-run
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const runIdInput = "${{ github.event.inputs.artifact_run_id }}".trim();
-          let runId;
-          
-          if (runIdInput) {
-            // Use the provided run ID
-            runId = parseInt(runIdInput, 10);
-            core.info(`Using provided run ID: ${runId}`);
-          } else {
-            // Get the latest cmake-cross-platform run (regardless of status)
-            const runs = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: "cmake-cross-platform.yml",
-              per_page: 1,
-            });
-            
-            if (!runs.data.workflow_runs.length) {
-              core.setFailed("No cmake-cross-platform runs found");
-              return;
-            }
-            
-            runId = runs.data.workflow_runs[0].id;
-            core.info(`Using latest run ID: ${runId}`);
-          }
-          
-          // Get the run details
-          const run = await github.rest.actions.getWorkflowRun({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            run_id: runId,
-          });
-          
-          // Check if it succeeded
-          if (run.data.conclusion !== "success") {
-            core.setFailed(`Run ${runId} did not succeed (status: ${run.data.conclusion}). Fix the build or specify a different run ID.`);
-            return;
-          }
-          
-          core.setOutput("run_id", runId.toString());
-          core.setOutput("run_sha", run.data.head_sha);
-
-    - name: Check out source at artifact commit
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ steps.find-run.outputs.run_sha }}
+    - uses: actions/checkout@v4
 
     - name: Download Linux artifacts
-      if: ${{ inputs.upload_linux_artifacts }}
+      if: ${{ inputs.build_linux }}
       uses: actions/download-artifact@v4
       with:
-        name: qvm-linux
+        name: qvm-linux-release
         path: artifacts/linux
-        run-id: ${{ steps.find-run.outputs.run_id }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Download macOS artifacts
-      if: ${{ inputs.upload_macos_artifacts }}
+      if: ${{ inputs.build_macos }}
       uses: actions/download-artifact@v4
       with:
-        name: qvm-macos
+        name: qvm-macos-release
         path: artifacts/macos
-        run-id: ${{ steps.find-run.outputs.run_id }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Download Windows artifacts
-      if: ${{ inputs.upload_windows_artifacts }}
+      if: ${{ inputs.build_windows }}
       uses: actions/download-artifact@v4
       with:
-        name: qvm-windows
+        name: qvm-windows-release
         path: artifacts/windows
-        run-id: ${{ steps.find-run.outputs.run_id }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Compute Windows artifact SHA
+      if: ${{ inputs.build_windows }}
       id: winsha
-      run: echo "win_sha=$(shasum -a 256 artifacts/windows/qvm-bin-windows.zip | awk '{print $1}')" >> $GITHUB_OUTPUT
+      run: |
+        WIN_ZIP=$(find artifacts/windows -name "qvm-*-win64.zip" | head -n1)
+        if [ -n "$WIN_ZIP" ]; then
+          echo "win_sha=$(shasum -a 256 "$WIN_ZIP" | awk '{print $1}')" >> $GITHUB_OUTPUT
+        fi
 
     - name: Generate Scoop manifest
+      if: ${{ inputs.build_windows }}
       run: |
         VERSION="${{ github.event.inputs.version }}"
         VER_NO_V="${VERSION#v}"
+        WIN_ZIP=$(find artifacts/windows -name "qvm-*-win64.zip" -printf "%f\n" | head -n1)
         cp scoop/qvm.json scoop-qvm.json
         sed -i.bak \
           -e "s/0.0.0/${VER_NO_V}/" \
-          -e "s|/v0.0.0/qvm-bin-windows.zip|/${VERSION}/qvm-bin-windows.zip|" \
+          -e "s|qvm-0.0.0-dev-win64.zip|${WIN_ZIP}|" \
           -e "s/REPLACE_WITH_SHA256_OF_qvm-bin-windows.zip/${{ steps.winsha.outputs.win_sha }}/" \
           scoop-qvm.json
         rm scoop-qvm.json.bak
@@ -140,18 +246,21 @@ jobs:
     - name: Collect release files
       id: collect
       run: |
+        FILES="qvm-${{ github.event.inputs.version }}.tar.gz"
+        if [ -d artifacts/linux ]; then
+          FILES="$FILES $(find artifacts/linux -type f)"
+        fi
+        if [ -d artifacts/macos ]; then
+          FILES="$FILES $(find artifacts/macos -type f)"
+        fi
+        if [ -d artifacts/windows ]; then
+          FILES="$FILES $(find artifacts/windows -type f)"
+        fi
+        if [ -f scoop-qvm.json ]; then
+          FILES="$FILES scoop-qvm.json"
+        fi
         echo "files<<EOF" >> $GITHUB_OUTPUT
-        echo "qvm-${{ github.event.inputs.version }}.tar.gz" >> $GITHUB_OUTPUT
-        if ${{ inputs.upload_linux_artifacts }}; then
-          echo "artifacts/linux/qvm-bin-linux.zip" >> $GITHUB_OUTPUT
-        fi
-        if ${{ inputs.upload_macos_artifacts }}; then
-          echo "artifacts/macos/qvm-bin-macos.zip" >> $GITHUB_OUTPUT
-        fi
-        if ${{ inputs.upload_windows_artifacts }}; then
-          echo "artifacts/windows/qvm-bin-windows.zip" >> $GITHUB_OUTPUT
-          echo "scoop-qvm.json" >> $GITHUB_OUTPUT
-        fi
+        echo "$FILES" | tr ' ' '\n' >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Publish GitHub Release
@@ -160,19 +269,3 @@ jobs:
         tag_name: ${{ github.event.inputs.version }}
         files: ${{ steps.collect.outputs.files }}
         prerelease: ${{ github.event.inputs.prerelease }}
-
-    # Uncomment the following to automatically trigger package manager updates after a release
-    # - name: Trigger package manager updates
-    #   uses: actions/github-script@v7
-    #   with:
-    #     script: |
-    #       await github.rest.actions.createWorkflowDispatch({
-    #         owner: context.repo.owner,
-    #         repo: context.repo.repo,
-    #         workflow_id: 'update-package-managers.yml',
-    #         ref: 'main',
-    #         inputs: {
-    #           version: '${{ github.event.inputs.version }}',
-    #           update_homebrew: 'true'
-    #         }
-    #       });
