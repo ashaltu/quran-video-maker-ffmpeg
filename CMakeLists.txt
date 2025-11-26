@@ -147,9 +147,8 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 endif()
 
 if(WIN32 AND MINGW)
-    install(DIRECTORY ${CMAKE_BINARY_DIR}/
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/deps/
         DESTINATION ${CMAKE_INSTALL_BINDIR}
         FILES_MATCHING PATTERN "*.dll"
-        PATTERN "CMakeFiles" EXCLUDE
     )
 endif()

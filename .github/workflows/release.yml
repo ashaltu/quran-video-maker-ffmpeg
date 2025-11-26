@@ -172,8 +172,9 @@ jobs:
       shell: msys2 {0}
       run: |
         cd build
-        ldd qvm.exe | grep ucrt64 | awk '{print $3}' | xargs -I {} cp {} .
-        
+        mkdir -p deps
+        ldd qvm.exe | grep ucrt64 | awk '{print $3}' | xargs -I {} cp {} deps/
+            
     - name: Package with CPack
       shell: msys2 {0}
       run: |
