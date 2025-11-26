@@ -21,7 +21,7 @@ on:
 
 jobs:
   macos-brew:
-    if: ${{ !github.event.inputs.skip_macos }}
+    if: ${{ !inputs.skip_macos }}
     runs-on: macos-latest
     steps:
       - name: Install via Homebrew
@@ -42,7 +42,7 @@ jobs:
           test -s out/thumbnail.jpeg
 
   windows-scoop:
-    if: ${{ !github.event.inputs.skip_windows }}
+    if: ${{ !inputs.skip_windows }}
     runs-on: windows-latest
     steps:
       - name: Install Scoop
@@ -113,7 +113,7 @@ jobs:
           Write-Host "✓ Smoke test passed"
 
   linux-brew:
-    if: ${{ !github.event.inputs.skip_linux }}
+    if: ${{ !inputs.skip_linux }}
     runs-on: ubuntu-latest
     steps:
       - name: Install Homebrew (Linuxbrew)
