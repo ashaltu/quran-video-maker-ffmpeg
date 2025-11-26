@@ -198,7 +198,7 @@ jobs:
     - name: Smoke render
       shell: msys2 {0}
       run: |
-        /$env:BUILD_DIR/qvm.exe 1 1 7 --output out/smoke.mp4 2>&1
+        ./build/qvm.exe 1 1 7 --output out/smoke.mp4 2>&1
         test -s out/smoke.mp4
         test -s out/thumbnail.jpeg
 
