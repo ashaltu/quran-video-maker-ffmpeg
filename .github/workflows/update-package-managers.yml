@@ -1,0 +1,72 @@
+name: Update Package Managers
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag that was just released (e.g., v1.0.0)"
+        required: true
+      update_homebrew:
+        description: 'Update Homebrew tap'
+        type: boolean
+        default: true
+      update_scoop:
+        description: 'Update Scoop manifest (in-progress)'
+        type: boolean
+        default: false
+
+jobs:
+  update-homebrew-tap:
+    if: ${{ github.event.inputs.update_homebrew }}
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout homebrew-tap repository
+      uses: actions/checkout@v4
+      with:
+        repository: ashaltu/homebrew-tap
+        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+    - name: Download release tarball to compute SHA256
+      run: |
+        curl -L -o qvm-${{ github.event.inputs.version }}.tar.gz \
+          https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${{ github.event.inputs.version }}/qvm-${{ github.event.inputs.version }}.tar.gz
+
+    - name: Compute SHA256
+      id: sha
+      run: echo "sha256=$(shasum -a 256 qvm-${{ github.event.inputs.version }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+    - name: Update Homebrew formulas (latest + versioned)
+      run: |
+        VERSION="${{ github.event.inputs.version }}"
+        VER_NO_V="${VERSION#v}"
+        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${VERSION}/qvm-${VERSION}.tar.gz"
+        # Capture old version before updating
+        OLD_URL=$(grep '^  url "' Formula/qvm.rb | head -n1 | sed -E 's/^  url "([^"]+)".*/\1/')
+        OLD_VER=$(echo "$OLD_URL" | sed -nE 's#.*/download/(v[^/]+)/.*#\1#p')
+        if [ -z "$OLD_VER" ]; then
+          echo "Could not detect old version from $OLD_URL" >&2
+          exit 1
+        fi
+        OLD_VER_NO_V=${OLD_VER#v}
+        OLD_CLASS="QvmAT$(echo $OLD_VER_NO_V | tr -d '.')"
+        VFORMULA_OLD="Formula/qvm@${OLD_VER_NO_V}.rb"
+
+        # Preserve old formula as versioned, if it doesn't already exist
+        if [ ! -f "$VFORMULA_OLD" ]; then
+          cp Formula/qvm.rb "$VFORMULA_OLD"
+          perl -pi -e "s/^class Qvm < Formula/class ${OLD_CLASS} < Formula/" "$VFORMULA_OLD"
+        fi
+
+        # Update latest formula in-place to the new version
+        perl -pi -e "s|^  url \".*\"$|  url \"${URL}\"|; s|^  sha256 \".*\"$|  sha256 \"${{ steps.sha.outputs.sha256 }}\"|" Formula/qvm.rb
+
+    - name: Commit and push changes
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add Formula/qvm.rb Formula/qvm@*.rb
+        git commit -m "Update qvm to ${{ github.event.inputs.version }}" || echo "No changes to commit"
+        git push
+
+  # Future: Add update-scoop-manifest job here

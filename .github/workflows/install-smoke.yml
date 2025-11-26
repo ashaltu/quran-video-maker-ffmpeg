@@ -6,9 +6,22 @@ on:
       tag:
         description: "Release tag to install (e.g., v0.1.2). Defaults to latest if empty."
         required: false
+      skip_macos:
+        description: 'Skip macOS Homebrew test'
+        type: boolean
+        default: false
+      skip_windows:
+        description: 'Skip Windows Scoop test'
+        type: boolean
+        default: false
+      skip_linux:
+        description: 'Skip Linux Homebrew test'
+        type: boolean
+        default: false
 
 jobs:
   macos-brew:
+    if: ${{ !github.event.inputs.skip_macos }}
     runs-on: macos-latest
     steps:
       - name: Install via Homebrew
@@ -29,6 +42,7 @@ jobs:
           test -s out/thumbnail.jpeg
 
   windows-scoop:
+    if: ${{ !github.event.inputs.skip_windows }}
     runs-on: windows-latest
     steps:
       - name: Install Scoop
@@ -99,6 +113,7 @@ jobs:
           Write-Host "✓ Smoke test passed"
 
   linux-brew:
+    if: ${{ !github.event.inputs.skip_linux }}
     runs-on: ubuntu-latest
     steps:
       - name: Install Homebrew (Linuxbrew)

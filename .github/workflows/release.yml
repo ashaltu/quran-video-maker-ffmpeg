@@ -9,10 +9,22 @@ on:
       prerelease:
         description: "Is this a prerelease?"
         type: boolean
-        default: true
+        default: false
       artifact_run_id:
         description: "Run ID of cmake-cross-platform to reuse (leave empty for latest run)"
         required: false
+      upload_linux_artifacts:
+        description: 'Upload Linux artifacts'
+        type: boolean
+        default: false
+      upload_macos_artifacts:
+        description: 'Upload macOS artifacts'
+        type: boolean
+        default: false
+      upload_windows_artifacts:
+        description: 'Upload Windows artifacts'
+        type: boolean
+        default: false
 
 env:
   BUILD_DIR: build
@@ -77,6 +89,7 @@ jobs:
         ref: ${{ steps.find-run.outputs.run_sha }}
 
     - name: Download Linux artifacts
+      if: ${{ github.event.inputs.upload_linux_artifacts }}
       uses: actions/download-artifact@v4
       with:
         name: qvm-linux
@@ -85,6 +98,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Download macOS artifacts
+      if: ${{ github.event.inputs.upload_macos_artifacts }}
       uses: actions/download-artifact@v4
       with:
         name: qvm-macos
@@ -93,6 +107,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Download Windows artifacts
+      if: ${{ github.event.inputs.upload_windows_artifacts }}
       uses: actions/download-artifact@v4
       with:
         name: qvm-windows
@@ -128,61 +143,24 @@ jobs:
         tag_name: ${{ github.event.inputs.version }}
         files: |
           qvm-${{ github.event.inputs.version }}.tar.gz
-          artifacts/linux/qvm-bin-linux.zip
-          artifacts/macos/qvm-bin-macos.zip
-          artifacts/windows/qvm-bin-windows.zip
-          scoop-qvm.json
+          ${{ github.event.inputs.upload_linux_artifacts && 'artifacts/linux/qvm-bin-linux.zip' || '' }}
+          ${{ github.event.inputs.upload_macos_artifacts && 'artifacts/macos/qvm-bin-macos.zip' || '' }}
+          ${{ github.event.inputs.upload_windows_artifacts && 'artifacts/windows/qvm-bin-windows.zip' || '' }}
+          ${{ github.event.inputs.upload_windows_artifacts && 'scoop-qvm.json' || '' }}
         prerelease: ${{ github.event.inputs.prerelease }}
 
-  update-homebrew-tap:
-    needs: release
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout homebrew-tap repository
-      uses: actions/checkout@v4
-      with:
-        repository: ashaltu/homebrew-tap
-        token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-
-    - name: Download release tarball to compute SHA256
-      run: |
-        curl -L -o qvm-${{ github.event.inputs.version }}.tar.gz \
-          https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${{ github.event.inputs.version }}/qvm-${{ github.event.inputs.version }}.tar.gz
-
-    - name: Compute SHA256
-      id: sha
-      run: echo "sha256=$(shasum -a 256 qvm-${{ github.event.inputs.version }}.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
-
-    - name: Update Homebrew formulas (latest + versioned)
-      run: |
-        VERSION="${{ github.event.inputs.version }}"
-        VER_NO_V="${VERSION#v}"
-        URL="https://github.com/ashaltu/quran-video-maker-ffmpeg/releases/download/${VERSION}/qvm-${VERSION}.tar.gz"
-        # Capture old version before updating
-        OLD_URL=$(grep '^  url "' Formula/qvm.rb | head -n1 | sed -E 's/^  url "([^"]+)".*/\1/')
-        OLD_VER=$(echo "$OLD_URL" | sed -nE 's#.*/download/(v[^/]+)/.*#\1#p')
-        if [ -z "$OLD_VER" ]; then
-          echo "Could not detect old version from $OLD_URL" >&2
-          exit 1
-        fi
-        OLD_VER_NO_V=${OLD_VER#v}
-        OLD_CLASS="QvmAT$(echo $OLD_VER_NO_V | tr -d '.')"
-        VFORMULA_OLD="Formula/qvm@${OLD_VER_NO_V}.rb"
-
-        # Preserve old formula as versioned, if it doesn't already exist
-        if [ ! -f "$VFORMULA_OLD" ]; then
-          cp Formula/qvm.rb "$VFORMULA_OLD"
-          perl -pi -e "s/^class Qvm < Formula/class ${OLD_CLASS} < Formula/" "$VFORMULA_OLD"
-        fi
-
-        # Update latest formula in-place to the new version
-        perl -pi -e "s|^  url \".*\"$|  url \"${URL}\"|; s|^  sha256 \".*\"$|  sha256 \"${{ steps.sha.outputs.sha256 }}\"|" Formula/qvm.rb
-
-    - name: Commit and push changes
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add Formula/qvm.rb Formula/qvm@*.rb
-        git commit -m "Update qvm to ${{ github.event.inputs.version }}" || echo "No changes to commit"
-        git push
+    # Uncomment the following to automatically trigger package manager updates after a release
+    # - name: Trigger package manager updates
+    #   uses: actions/github-script@v7
+    #   with:
+    #     script: |
+    #       await github.rest.actions.createWorkflowDispatch({
+    #         owner: context.repo.owner,
+    #         repo: context.repo.repo,
+    #         workflow_id: 'update-package-managers.yml',
+    #         ref: 'main',
+    #         inputs: {
+    #           version: '${{ github.event.inputs.version }}',
+    #           update_homebrew: 'true'
+    #         }
+    #       });

@@ -6,6 +6,19 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      skip_linux:
+        description: 'Skip Linux build'
+        type: boolean
+        default: false
+      skip_macos:
+        description: 'Skip macOS build'
+        type: boolean
+        default: false
+      skip_windows:
+        description: 'Skip Windows build'
+        type: boolean
+        default: false
 
 env:
   BUILD_DIR: build
@@ -13,6 +26,7 @@ env:
 
 jobs:
   build-linux:
+    if: github.event_name != 'workflow_dispatch' || !github.event.inputs.skip_linux
     runs-on: ubuntu-latest
 
     steps:
@@ -75,6 +89,7 @@ jobs:
         path: artifacts/linux
 
   build-macos:
+    if: github.event_name != 'workflow_dispatch' || !github.event.inputs.skip_macos
     runs-on: macos-latest
 
     steps:
@@ -138,6 +153,7 @@ jobs:
         path: artifacts/macos
 
   build-windows:
+    if: github.event_name != 'workflow_dispatch' || !github.event.inputs.skip_windows
     runs-on: windows-latest
 
     steps:
