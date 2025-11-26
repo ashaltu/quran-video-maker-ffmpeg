@@ -168,12 +168,6 @@ jobs:
       shell: msys2 {0}
       run: cmake --build build --config Release
 
-    - name: Download CA bundle for curl
-      shell: msys2 {0}
-      run: |
-        mkdir -p build
-        curl -L -o build/ca-bundle.crt https://curl.se/ca/cacert.pem
-
     - name: Copy all runtime dependencies
       shell: msys2 {0}
       run: |
