@@ -103,15 +103,6 @@ jobs:
           $appRoot = "$env:USERPROFILE\scoop\apps\scoop-qvm\current"
           $dataRoot = Join-Path $appRoot 'share/quran-video-maker'
 
-          $bundle = Join-Path $dataRoot 'cacert.pem'
-          if (Test-Path $bundle) {
-            $env:CURL_CA_BUNDLE = $bundle
-            $env:SSL_CERT_FILE = $bundle
-            Write-Host "Using CA bundle: $bundle"
-          } else {
-            Write-Host "CA bundle not found at $bundle"
-          }
-
           Write-Host "Data root: $dataRoot"
 
           New-Item -ItemType Directory -Force -Path out | Out-Null
