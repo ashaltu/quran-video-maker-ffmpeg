@@ -146,7 +146,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
     )
 endif()
 
-# Windows-specific: Bundle MinGW runtime DLLs
+# Windows-specific: Bundle MinGW runtime DLLs and dependencies
 if(WIN32 AND MINGW)
     # Get the compiler's bin directory
     get_filename_component(MINGW_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
@@ -160,20 +160,30 @@ if(WIN32 AND MINGW)
         OPTIONAL
     )
     
-    # Use file(GET_RUNTIME_DEPENDENCIES) to find all other needed DLLs
-    install(CODE [[
-        file(GET_RUNTIME_DEPENDENCIES
-            EXECUTABLES $<TARGET_FILE:qvm>
-            RESOLVED_DEPENDENCIES_VAR _r_deps
-            UNRESOLVED_DEPENDENCIES_VAR _u_deps
-            DIRECTORIES ${CMAKE_INSTALL_PREFIX}/bin
+    # Find and install all FFmpeg and dependency DLLs
+    file(GLOB FFMPEG_DLLS 
+        "${MINGW_BIN_DIR}/avcodec-*.dll"
+        "${MINGW_BIN_DIR}/avformat-*.dll"
+        "${MINGW_BIN_DIR}/avutil-*.dll"
+        "${MINGW_BIN_DIR}/avfilter-*.dll"
+        "${MINGW_BIN_DIR}/swscale-*.dll"
+        "${MINGW_BIN_DIR}/swresample-*.dll"
+        "${MINGW_BIN_DIR}/libfreetype-*.dll"
+        "${MINGW_BIN_DIR}/libharfbuzz-*.dll"
+        "${MINGW_BIN_DIR}/libbrotli*.dll"
+        "${MINGW_BIN_DIR}/libbz2-*.dll"
+        "${MINGW_BIN_DIR}/libglib-*.dll"
+        "${MINGW_BIN_DIR}/libgraphite2.dll"
+        "${MINGW_BIN_DIR}/libintl-*.dll"
+        "${MINGW_BIN_DIR}/libpcre2-*.dll"
+        "${MINGW_BIN_DIR}/libpng16-*.dll"
+        "${MINGW_BIN_DIR}/zlib1.dll"
+        "${MINGW_BIN_DIR}/libiconv-*.dll"
+    )
+    
+    if(FFMPEG_DLLS)
+        install(FILES ${FFMPEG_DLLS}
+            DESTINATION ${CMAKE_INSTALL_BINDIR}
         )
-        foreach(_file ${_r_deps})
-            file(INSTALL
-                DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
-                TYPE SHARED_LIBRARY
-                FILES "${_file}"
-            )
-        endforeach()
-    ]])
+    endif()
 endif()
