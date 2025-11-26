@@ -153,6 +153,7 @@ jobs:
         path: artifacts/macos
 
   build-windows:
+    if: github.event_name != 'workflow_dispatch' || inputs.skip_windows == false
     runs-on: windows-latest
 
     steps:
