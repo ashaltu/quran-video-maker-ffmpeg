@@ -117,6 +117,21 @@ jobs:
           }
 
           Write-Host "Data root: $dataRoot"
+          $cacheRoot = if ($env:QVM_CACHE_DIR) { $env:QVM_CACHE_DIR } else { Join-Path $env:LOCALAPPDATA 'quran-video-maker' }
+          $audioDir = Join-Path $cacheRoot 'audio'
+          New-Item -ItemType Directory -Force -Path $audioDir | Out-Null
+
+          Write-Host "Prefetching audio into cache: $audioDir"
+          $ProgressPreference = 'SilentlyContinue'
+          for ($v = 1; $v -le 7; $v++) {
+            $fileId = ('{0:D3}{1:D3}' -f 1, $v)
+            $url = "https://audio-cdn.tarteel.ai/quran/minshawyMurattal/$fileId.mp3"
+            $label = "1:$v`_r17.mp3"
+            $dest = Join-Path $audioDir ($label -replace '[^0-9A-Za-z]', '_')
+            Write-Host "  - $url -> $dest"
+            Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
+          }
+
           New-Item -ItemType Directory -Force -Path out | Out-Null
           Write-Host "Running qvm..."
           qvm 1 1 7 `
