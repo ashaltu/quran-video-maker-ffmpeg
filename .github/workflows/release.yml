@@ -89,7 +89,7 @@ jobs:
         ref: ${{ steps.find-run.outputs.run_sha }}
 
     - name: Download Linux artifacts
-      if: ${{ github.event.inputs.upload_linux_artifacts }}
+      if: github.event.inputs.upload_linux_artifacts
       uses: actions/download-artifact@v4
       with:
         name: qvm-linux
@@ -98,7 +98,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Download macOS artifacts
-      if: ${{ github.event.inputs.upload_macos_artifacts }}
+      if: github.event.inputs.upload_macos_artifacts
       uses: actions/download-artifact@v4
       with:
         name: qvm-macos
@@ -107,7 +107,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Download Windows artifacts
-      if: ${{ github.event.inputs.upload_windows_artifacts }}
+      if: github.event.inputs.upload_windows_artifacts
       uses: actions/download-artifact@v4
       with:
         name: qvm-windows
@@ -137,16 +137,20 @@ jobs:
         git archive --format=tar --prefix=qvm-${{ github.event.inputs.version }}/ HEAD | tar -xf - -C release-src
         tar -czf qvm-${{ github.event.inputs.version }}.tar.gz -C release-src qvm-${{ github.event.inputs.version }}
 
+    - name: Collect release files
+      id: collect
+      run: |
+        FILES="qvm-${{ github.event.inputs.version }}.tar.gz"
+        if ${{ github.event.inputs.upload_linux_artifacts }}; then FILES="$FILES artifacts/linux/qvm-bin-linux.zip"; fi
+        if ${{ github.event.inputs.upload_macos_artifacts }}; then FILES="$FILES artifacts/macos/qvm-bin-macos.zip"; fi
+        if ${{ github.event.inputs.upload_windows_artifacts }}; then FILES="$FILES artifacts/windows/qvm-bin-windows.zip scoop-qvm.json scoop-qvm.json scoop-qvm.json scoop-qvm.json"; fi
+        echo "files=$FILES" >> $GITHUB_OUTPUT
+
     - name: Publish GitHub Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.event.inputs.version }}
-        files: |
-          qvm-${{ github.event.inputs.version }}.tar.gz
-          ${{ github.event.inputs.upload_linux_artifacts && 'artifacts/linux/qvm-bin-linux.zip' || '' }}
-          ${{ github.event.inputs.upload_macos_artifacts && 'artifacts/macos/qvm-bin-macos.zip' || '' }}
-          ${{ github.event.inputs.upload_windows_artifacts && 'artifacts/windows/qvm-bin-windows.zip' || '' }}
-          ${{ github.event.inputs.upload_windows_artifacts && 'scoop-qvm.json' || '' }}
+        files: ${{ steps.collect.outputs.files }}
         prerelease: ${{ github.event.inputs.prerelease }}
 
     # Uncomment the following to automatically trigger package manager updates after a release
