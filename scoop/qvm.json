@@ -18,7 +18,9 @@
   "env_add_path": "bin",
   "persist": ["cache", "bin"],
   "env_set": {
-    "QVM_CACHE_DIR": "$env:LOCALAPPDATA\\QVM\\cache"
+    "QVM_CACHE_DIR": "$env:LOCALAPPDATA\\QVM\\cache",
+    "CURL_CA_BUNDLE": "$env:USERPROFILE\\scoop\\apps\\scoop-qvm\\current\\etc\\ssl\\certs\\ca-bundle.crt",
+    "CURL_SSL_BACKEND": "schannel"
   },
   "post_install": [
     "mkdir \"$env:LOCALAPPDATA\\QVM\\cache\" -ErrorAction SilentlyContinue"

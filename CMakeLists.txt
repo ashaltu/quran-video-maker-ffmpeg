@@ -155,6 +155,16 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
     )
 endif()
 
+if(WIN32)
+    # Optional: include a CA bundle alongside the binary for OpenSSL-based curls
+    if(EXISTS "${CMAKE_BINARY_DIR}/ca-bundle.crt")
+        install(FILES "${CMAKE_BINARY_DIR}/ca-bundle.crt"
+            DESTINATION etc/ssl/certs
+            RENAME ca-bundle.crt
+        )
+    endif()
+endif()
+
 if(WIN32 AND MINGW)
     install(DIRECTORY ${CMAKE_BINARY_DIR}/deps/
         DESTINATION ${CMAKE_INSTALL_BINDIR}
