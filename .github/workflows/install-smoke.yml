@@ -119,8 +119,7 @@ jobs:
 
           New-Item -ItemType Directory -Force -Path out | Out-Null
           Write-Host "Running qvm..."
-          qvm 1 1 7 `
-            --output out/smoke.mp4 2>&1 | Tee-Object -Variable output
+          qvm 1 1 7 --output out/smoke.mp4 2>&1 | Tee-Object -Variable output
           Write-Host "Exit code: $LASTEXITCODE"
           Write-Host "Output: $output"
           
