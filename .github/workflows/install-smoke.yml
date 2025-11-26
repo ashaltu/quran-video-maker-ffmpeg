@@ -6,16 +6,16 @@ on:
       tag:
         description: "Release tag to install (e.g., v0.1.2). Defaults to latest if empty."
         required: false
+      skip_linux:
+        description: 'Skip Linux Homebrew test'
+        type: boolean
+        default: false
       skip_macos:
         description: 'Skip macOS Homebrew test'
         type: boolean
         default: false
       skip_windows:
         description: 'Skip Windows Scoop test'
-        type: boolean
-        default: false
-      skip_linux:
-        description: 'Skip Linux Homebrew test'
         type: boolean
         default: false
 
@@ -36,6 +36,34 @@ jobs:
 
       - name: Smoke render
         run: |
+          mkdir -p out
+          qvm 1 1 7 --output out/smoke.mp4
+          test -s out/smoke.mp4
+          test -s out/thumbnail.jpeg
+
+  linux-brew:
+    if: ${{ !inputs.skip_linux }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Homebrew (Linuxbrew)
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $HOME/.bashrc
+
+      - name: Install qvm via Homebrew
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            brew install ashaltu/tap/qvm
+          else
+            VER="${TAG#v}"
+            brew install ashaltu/tap/qvm@$VER 2>/dev/null || brew install ashaltu/tap/qvm
+          fi
+
+      - name: Smoke render
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           mkdir -p out
           qvm 1 1 7 --output out/smoke.mp4
           test -s out/smoke.mp4
@@ -111,31 +139,3 @@ jobs:
             Get-Content $qvmLog 
           }
           Write-Host "✓ Smoke test passed"
-
-  linux-brew:
-    if: ${{ !inputs.skip_linux }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install Homebrew (Linuxbrew)
-        run: |
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> $HOME/.bashrc
-
-      - name: Install qvm via Homebrew
-        run: |
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          TAG="${{ github.event.inputs.tag }}"
-          if [ -z "$TAG" ]; then
-            brew install ashaltu/tap/qvm
-          else
-            VER="${TAG#v}"
-            brew install ashaltu/tap/qvm@$VER 2>/dev/null || brew install ashaltu/tap/qvm
-          fi
-
-      - name: Smoke render
-        run: |
-          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-          mkdir -p out
-          qvm 1 1 7 --output out/smoke.mp4
-          test -s out/smoke.mp4
-          test -s out/thumbnail.jpeg
