@@ -72,21 +72,15 @@ jobs:
         test -s out/urd-ci-smoke.mp4
         test -s out/urd-thumbnail.jpeg
 
-    - name: Package binary artifact
-      run: |
-        mkdir -p artifacts/linux
-        zip -r artifacts/linux/qvm-bin-linux.zip build/qvm config.json assets LICENSE README.md
-
-    - name: Package test results
-      run: |
-        mkdir -p artifacts/linux
-        zip -j artifacts/linux/qvm-test-results-linux-${{ github.run_id }}.zip out/en-ci-smoke.mp4 out/en-thumbnail.jpeg out/urd-ci-smoke.mp4 out/urd-thumbnail.jpeg
-
-    - name: Upload artifacts
+    - name: Upload smoke outputs
       uses: actions/upload-artifact@v4
       with:
-        name: qvm-linux
-        path: artifacts/linux
+        name: qvm-linux-smoke
+        path: |
+          out/en-ci-smoke.mp4
+          out/urd-ci-smoke.mp4
+          out/en-thumbnail.jpeg
+          out/urd-thumbnail.jpeg
 
   build-macos:
     if: github.event_name != 'workflow_dispatch' || inputs.skip_macos == false
@@ -136,21 +130,15 @@ jobs:
         test -s out/urd-ci-smoke.mp4
         test -s out/urd-thumbnail.jpeg
 
-    - name: Package binary artifact
-      run: |
-        mkdir -p artifacts/macos
-        zip -r artifacts/macos/qvm-bin-macos.zip build/qvm config.json assets LICENSE README.md
-
-    - name: Package test results
-      run: |
-        mkdir -p artifacts/macos
-        zip -j artifacts/macos/qvm-test-results-macos-${{ github.run_id }}.zip out/en-ci-smoke.mp4 out/en-thumbnail.jpeg out/urd-ci-smoke.mp4 out/urd-thumbnail.jpeg
-
-    - name: Upload artifacts
+    - name: Upload smoke outputs
       uses: actions/upload-artifact@v4
       with:
-        name: qvm-macos
-        path: artifacts/macos
+        name: qvm-macos-smoke
+        path: |
+          out/en-ci-smoke.mp4
+          out/urd-ci-smoke.mp4
+          out/en-thumbnail.jpeg
+          out/urd-thumbnail.jpeg
 
   build-windows:
     if: github.event_name != 'workflow_dispatch' || inputs.skip_windows == false
@@ -177,13 +165,11 @@ jobs:
           ucrt64/mingw-w64-ucrt-x86_64-freetype
           ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
 
-    - name: Download test data
+    - name: Prepare data.tar
       shell: msys2 {0}
-      run: curl -L -o data.tar https://qvm-r2-storage.tawbah.app/data.tar
-
-    - name: Extract test data
-      shell: msys2 {0}
-      run: tar -xf data.tar
+      run: |
+        curl -L -o data.tar https://qvm-r2-storage.tawbah.app/data.tar
+        tar -xf data.tar
 
     - name: Configure CMake
       shell: msys2 {0}
@@ -195,17 +181,29 @@ jobs:
       shell: msys2 {0}
       run: cmake --build build --config Release
 
-    - name: Smoke render
+    - name: Test (unit tests and smoke test)
       shell: msys2 {0}
       run: |
-        ./build/qvm.exe 1 1 7 --output out/smoke.mp4 2>&1
-        test -s out/smoke.mp4
-        test -s out/thumbnail.jpeg
+        cd ${BUILD_DIR}
+        ctest --build-config ${BUILD_TYPE} --rerun-failed --output-on-failure
+        cd ..
+        mkdir -p out
+        ./build/qvm.exe 1 1 7 --translation 1 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/en-ci-smoke.mp4
+        mv out/thumbnail.jpeg out/en-thumbnail.jpeg
+        ./build/qvm.exe 1 1 7 --translation 4 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/urd-ci-smoke.mp4
+        mv out/thumbnail.jpeg out/urd-thumbnail.jpeg
+        test -s out/en-ci-smoke.mp4
+        test -s out/en-thumbnail.jpeg
+        test -s out/urd-ci-smoke.mp4
+        test -s out/urd-thumbnail.jpeg
 
     - name: Upload smoke outputs
       uses: actions/upload-artifact@v4
       with:
         name: qvm-windows-smoke
         path: |
-          out/smoke.mp4
-          out/thumbnail.jpeg
+          out/en-ci-smoke.mp4
+          out/urd-ci-smoke.mp4
+          out/en-thumbnail.jpeg
+          out/urd-thumbnail.jpeg
+          
