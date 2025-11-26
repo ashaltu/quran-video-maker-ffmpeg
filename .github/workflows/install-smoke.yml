@@ -62,13 +62,23 @@ jobs:
           $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
           $qvmExe = (Get-Command qvm).Source
           $appRoot = Split-Path (Split-Path $qvmExe -Parent) -Parent
+          $persistRoot = "$env:USERPROFILE\\scoop\\persist\\scoop-qvm"
           Write-Host "qvm exe: $qvmExe"
           Write-Host "app root: $appRoot"
-          Set-Location $appRoot
+          Write-Host "persist root: $persistRoot"
+
+          # Prefer running from the persisted app dir if present
+          if (Test-Path (Join-Path $persistRoot "qvm.exe")) {
+            Set-Location $persistRoot
+            $runQvm = ".\\qvm.exe"
+          } else {
+            Set-Location $appRoot
+            $runQvm = "qvm"
+          }
 
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          $qvmLog = Join-Path $appRoot "qvm.log"
-          qvm 1 1 7 --output out\smoke.mp4 2>&1 | Tee-Object -FilePath $qvmLog
+          $qvmLog = Join-Path (Get-Location) "qvm.log"
+          & $runQvm 1 1 7 --output out\smoke.mp4 2>&1 | Tee-Object -FilePath $qvmLog
           if ($LASTEXITCODE -ne 0) {
             Get-Content $qvmLog
             throw "qvm failed with exit code $LASTEXITCODE"
