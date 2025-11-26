@@ -89,7 +89,7 @@ jobs:
         ref: ${{ steps.find-run.outputs.run_sha }}
 
     - name: Download Linux artifacts
-      if: github.event.inputs.upload_linux_artifacts
+      if: ${{ inputs.upload_linux_artifacts }}
       uses: actions/download-artifact@v4
       with:
         name: qvm-linux
@@ -98,7 +98,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Download macOS artifacts
-      if: github.event.inputs.upload_macos_artifacts
+      if: ${{ inputs.upload_macos_artifacts }}
       uses: actions/download-artifact@v4
       with:
         name: qvm-macos
@@ -107,7 +107,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Download Windows artifacts
-      if: github.event.inputs.upload_windows_artifacts
+      if: ${{ inputs.upload_windows_artifacts }}
       uses: actions/download-artifact@v4
       with:
         name: qvm-windows
@@ -141,9 +141,9 @@ jobs:
       id: collect
       run: |
         FILES="qvm-${{ github.event.inputs.version }}.tar.gz"
-        if ${{ github.event.inputs.upload_linux_artifacts }}; then FILES="$FILES artifacts/linux/qvm-bin-linux.zip"; fi
-        if ${{ github.event.inputs.upload_macos_artifacts }}; then FILES="$FILES artifacts/macos/qvm-bin-macos.zip"; fi
-        if ${{ github.event.inputs.upload_windows_artifacts }}; then FILES="$FILES artifacts/windows/qvm-bin-windows.zip scoop-qvm.json scoop-qvm.json scoop-qvm.json scoop-qvm.json"; fi
+        if ${{ inputs.upload_linux_artifacts }}; then FILES="$FILES artifacts/linux/qvm-bin-linux.zip"; fi
+        if ${{ inputs.upload_macos_artifacts }}; then FILES="$FILES artifacts/macos/qvm-bin-macos.zip"; fi
+        if ${{ inputs.upload_windows_artifacts }}; then FILES="$FILES artifacts/windows/qvm-bin-windows.zip scoop-qvm.json"; fi
         echo "files=$FILES" >> $GITHUB_OUTPUT
 
     - name: Publish GitHub Release
