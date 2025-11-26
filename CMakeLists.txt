@@ -60,7 +60,7 @@ pkg_check_modules(FREETYPE REQUIRED IMPORTED_TARGET freetype2)
 pkg_check_modules(HARFBUZZ REQUIRED IMPORTED_TARGET harfbuzz)
 
 
-add_library(qvm_lib
+add_library(qvm_lib STATIC
     src/api.cpp src/api.h
     src/video_generator.cpp src/video_generator.h
     src/timing_parser.cpp src/timing_parser.h
