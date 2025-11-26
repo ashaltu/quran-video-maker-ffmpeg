@@ -145,3 +145,11 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
         DESTINATION ${CMAKE_INSTALL_DATADIR}/quran-video-maker
     )
 endif()
+
+if(WIN32 AND MINGW)
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        FILES_MATCHING PATTERN "*.dll"
+        PATTERN "CMakeFiles" EXCLUDE
+    )
+endif()
