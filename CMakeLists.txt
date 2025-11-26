@@ -33,6 +33,17 @@ else()
     # Dependency: cpr
     find_package(cpr CONFIG)
     if(NOT cpr_FOUND)
+        # Configure CPR/cURL before fetching it. On Windows prefer Schannel so we use the
+        # native certificate store instead of OpenSSL + a custom CA bundle.
+        set(CPR_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(CPR_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(CPR_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+        set(CPR_FORCE_USE_SYSTEM_CURL OFF CACHE BOOL "" FORCE)
+        if(WIN32)
+            set(CPR_CURL_SSL_BACKEND "Schannel" CACHE STRING "" FORCE)
+            set(CURL_USE_SCHANNEL ON CACHE BOOL "" FORCE)
+            set(CURL_USE_OPENSSL OFF CACHE BOOL "" FORCE)
+        endif()
         FetchContent_Declare(
           cpr
           GIT_REPOSITORY https://github.com/libcpr/cpr.git

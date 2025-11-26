@@ -18,15 +18,9 @@
   "env_add_path": "bin",
   "persist": ["cache", "bin"],
   "env_set": {
-    "QVM_CACHE_DIR": "$env:LOCALAPPDATA\\QVM\\cache",
-    "CURL_CA_BUNDLE": "$dir\\share\\quran-video-maker\\cacert.pem",
-    "SSL_CERT_FILE": "$dir\\share\\quran-video-maker\\cacert.pem"
+    "QVM_CACHE_DIR": "$env:LOCALAPPDATA\\QVM\\cache"
   },
   "post_install": [
-    "mkdir \"$env:LOCALAPPDATA\\QVM\\cache\" -ErrorAction SilentlyContinue",
-    "New-Item -ItemType Directory -Force -Path \"$dir\\share\\quran-video-maker\" | Out-Null",
-    "$bundle = \"$dir\\share\\quran-video-maker\\cacert.pem\"",
-    "Write-Host \"Downloading CA bundle to $bundle\"",
-    "Invoke-WebRequest -UseBasicParsing -Uri https://curl.se/ca/cacert.pem -OutFile $bundle"
+    "mkdir \"$env:LOCALAPPDATA\\QVM\\cache\" -ErrorAction SilentlyContinue"
   ]
 }
