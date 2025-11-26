@@ -100,8 +100,16 @@ jobs:
       - name: Smoke render
         shell: pwsh
         run: |
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "Scoop app path: $env:USERPROFILE\scoop\apps\scoop-qvm\current"
+          Get-ChildItem "$env:USERPROFILE\scoop\apps\scoop-qvm\current" -Recurse -Depth 2
+          
           mkdir -p out
-          qvm 1 1 7 --output out/smoke.mp4
+          Write-Host "Running qvm..."
+          qvm 1 1 7 --output out/smoke.mp4 2>&1 | Tee-Object -Variable output
+          Write-Host "Exit code: $LASTEXITCODE"
+          Write-Host "Output: $output"
+          
           if (!(Test-Path out/smoke.mp4) -or (Get-Item out/smoke.mp4).Length -eq 0) {
             throw 'Video missing or empty'
           }
