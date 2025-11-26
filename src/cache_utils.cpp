@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <chrono>
 #include <thread>
+#include <iostream>
 #include <cpr/cpr.h>
 
 namespace fs = std::filesystem;
@@ -197,10 +198,18 @@ bool CacheUtils::downloadFileWithRetry(const std::string& url, const fs::path& d
         auto response = session.Download(out);
         out.close();
 
-        if (response.error.code == cpr::ErrorCode::OK &&
-            response.status_code >= 200 && response.status_code < 400 &&
-            fileIsValid(destination)) {
+        const bool ok = response.error.code == cpr::ErrorCode::OK &&
+                        response.status_code >= 200 && response.status_code < 400 &&
+                        fileIsValid(destination);
+        if (ok) {
             return true;
+        }
+
+        if (attempt == maxRetries) {
+            std::cerr << "  ! Download failed for " << url
+                      << " (HTTP " << response.status_code
+                      << ", cpr error=" << static_cast<int>(response.error.code)
+                      << " - " << response.error.message << ")" << std::endl;
         }
 
         std::error_code ec;

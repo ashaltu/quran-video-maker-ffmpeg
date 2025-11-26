@@ -14,54 +14,52 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
+# Dependency: cxxopts
+find_package(cxxopts CONFIG)
+if(NOT cxxopts_FOUND)
+    FetchContent_Declare(
+      cxxopts
+      GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+      GIT_TAG        v3.2.0
+    )
+    FetchContent_MakeAvailable(cxxopts)
+endif()
+
+# Dependency: cpr
+find_package(cpr CONFIG)
 if(WIN32)
-    find_package(cxxopts CONFIG REQUIRED)
-    find_package(cpr CONFIG REQUIRED)
-    find_package(nlohmann_json CONFIG REQUIRED)
-else()
-    # Dependency: cxxopts
-    find_package(cxxopts CONFIG)
-    if(NOT cxxopts_FOUND)
-        FetchContent_Declare(
-          cxxopts
-          GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-          GIT_TAG        v3.2.0
-        )
-        FetchContent_MakeAvailable(cxxopts)
+    # Always build CPR/cURL ourselves on Windows so we can force the Schannel
+    # backend and rely on the native certificate store instead of a missing
+    # OpenSSL CA bundle in Scoop installs.
+    set(cpr_FOUND FALSE)
+endif()
+if(NOT cpr_FOUND)
+    set(CPR_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(CPR_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(CPR_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(CPR_FORCE_USE_SYSTEM_CURL OFF CACHE BOOL "" FORCE)
+    if(WIN32)
+        set(CPR_CURL_SSL_BACKEND "Schannel" CACHE STRING "" FORCE)
+        set(CURL_USE_SCHANNEL ON CACHE BOOL "" FORCE)
+        set(CURL_USE_OPENSSL OFF CACHE BOOL "" FORCE)
     endif()
+    FetchContent_Declare(
+      cpr
+      GIT_REPOSITORY https://github.com/libcpr/cpr.git
+      GIT_TAG        1.11.3
+    )
+    FetchContent_MakeAvailable(cpr)
+endif()
 
-    # Dependency: cpr
-    find_package(cpr CONFIG)
-    if(NOT cpr_FOUND)
-        # Configure CPR/cURL before fetching it. On Windows prefer Schannel so we use the
-        # native certificate store instead of OpenSSL + a custom CA bundle.
-        set(CPR_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-        set(CPR_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-        set(CPR_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-        set(CPR_FORCE_USE_SYSTEM_CURL OFF CACHE BOOL "" FORCE)
-        if(WIN32)
-            set(CPR_CURL_SSL_BACKEND "Schannel" CACHE STRING "" FORCE)
-            set(CURL_USE_SCHANNEL ON CACHE BOOL "" FORCE)
-            set(CURL_USE_OPENSSL OFF CACHE BOOL "" FORCE)
-        endif()
-        FetchContent_Declare(
-          cpr
-          GIT_REPOSITORY https://github.com/libcpr/cpr.git
-          GIT_TAG        1.11.3
-        )
-        FetchContent_MakeAvailable(cpr)
-    endif()
-
-    # Dependency: nlohmann_json
-    find_package(nlohmann_json CONFIG)
-    if(NOT nlohmann_json_FOUND)
-        FetchContent_Declare(
-          nlohmann_json
-          GIT_REPOSITORY https://github.com/nlohmann/json.git
-          GIT_TAG        v3.11.3
-        )
-        FetchContent_MakeAvailable(nlohmann_json)
-    endif()
+# Dependency: nlohmann_json
+find_package(nlohmann_json CONFIG)
+if(NOT nlohmann_json_FOUND)
+    FetchContent_Declare(
+      nlohmann_json
+      GIT_REPOSITORY https://github.com/nlohmann/json.git
+      GIT_TAG        v3.11.3
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
 # Find required system libraries
