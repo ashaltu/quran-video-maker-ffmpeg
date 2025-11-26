@@ -61,31 +61,41 @@ jobs:
         run: |
           $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
           $qvmExe = (Get-Command qvm).Source
-          $appRoot = Split-Path (Split-Path $qvmExe -Parent) -Parent
-          $persistRoot = "$env:USERPROFILE\\scoop\\persist\\scoop-qvm"
           Write-Host "qvm exe: $qvmExe"
+          
+          # The actual app is installed in scoop\apps\scoop-qvm\current
+          $appRoot = "$env:USERPROFILE\scoop\apps\scoop-qvm\current"
+          $persistRoot = "$env:USERPROFILE\scoop\persist\scoop-qvm"
           Write-Host "app root: $appRoot"
           Write-Host "persist root: $persistRoot"
 
-          # Prefer running from the persisted app dir if present
-          if (Test-Path (Join-Path $persistRoot "qvm.exe")) {
-            Set-Location $persistRoot
-            $runQvm = ".\\qvm.exe"
-          } else {
-            Set-Location $appRoot
-            $runQvm = "qvm"
-          }
+          # Run from the app directory
+          Set-Location $appRoot
 
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          $qvmLog = Join-Path (Get-Location) "qvm.log"
-          & $runQvm 1 1 7 --output out\smoke.mp4 2>&1 | Tee-Object -FilePath $qvmLog
+          $qvmLog = Join-Path $appRoot "qvm.log"
+          
+          & .\qvm.exe 1 1 7 --output out\smoke.mp4 2>&1 | Tee-Object -FilePath $qvmLog
+          
           if ($LASTEXITCODE -ne 0) {
-            Get-Content $qvmLog
+            if (Test-Path $qvmLog) { 
+              Write-Host "=== qvm.log contents ==="
+              Get-Content $qvmLog 
+            }
             throw "qvm failed with exit code $LASTEXITCODE"
           }
-          if (!(Test-Path out\smoke.mp4) -or (Get-Item out\smoke.mp4).Length -eq 0) { throw 'Video missing or empty' }
-          if (!(Test-Path out\thumbnail.jpeg) -or (Get-Item out\thumbnail.jpeg).Length -eq 0) { throw 'Thumbnail missing or empty' }
-          Get-Content $qvmLog
+          
+          if (!(Test-Path out\smoke.mp4) -or (Get-Item out\smoke.mp4).Length -eq 0) { 
+            throw 'Video missing or empty' 
+          }
+          if (!(Test-Path out\thumbnail.jpeg) -or (Get-Item out\thumbnail.jpeg).Length -eq 0) { 
+            throw 'Thumbnail missing or empty' 
+          }
+          
+          if (Test-Path $qvmLog) { 
+            Write-Host "=== qvm.log contents ==="
+            Get-Content $qvmLog 
+          }
           Write-Host "✓ Smoke test passed"
 
   linux-brew:
