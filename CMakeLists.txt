@@ -145,3 +145,35 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
         DESTINATION ${CMAKE_INSTALL_DATADIR}/quran-video-maker
     )
 endif()
+
+# Windows-specific: Bundle MinGW runtime DLLs
+if(WIN32 AND MINGW)
+    # Get the compiler's bin directory
+    get_filename_component(MINGW_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+    
+    # Install essential MinGW runtime DLLs
+    install(FILES
+        "${MINGW_BIN_DIR}/libgcc_s_seh-1.dll"
+        "${MINGW_BIN_DIR}/libstdc++-6.dll"
+        "${MINGW_BIN_DIR}/libwinpthread-1.dll"
+        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        OPTIONAL
+    )
+    
+    # Use file(GET_RUNTIME_DEPENDENCIES) to find all other needed DLLs
+    install(CODE [[
+        file(GET_RUNTIME_DEPENDENCIES
+            EXECUTABLES $<TARGET_FILE:qvm>
+            RESOLVED_DEPENDENCIES_VAR _r_deps
+            UNRESOLVED_DEPENDENCIES_VAR _u_deps
+            DIRECTORIES ${CMAKE_INSTALL_PREFIX}/bin
+        )
+        foreach(_file ${_r_deps})
+            file(INSTALL
+                DESTINATION "${CMAKE_INSTALL_PREFIX}/bin"
+                TYPE SHARED_LIBRARY
+                FILES "${_file}"
+            )
+        endforeach()
+    ]])
+endif()
