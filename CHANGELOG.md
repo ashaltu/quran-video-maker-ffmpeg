@@ -2,12 +2,18 @@
 
 All notable changes to this project will be documented in this file. This project follows [Semantic Versioning](https://semver.org) and takes inspiration from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.1.4] - 2025-11-26
 ### Changed
+- Fixed videos not looping.
+
+## [0.1.2 - 0.1.3] - 2025-11-26
+### Changed
+- Added Windows support.
 - Documented CI-tested platforms (Ubuntu 24.04, macOS 15 arm64, Windows Server 2025) and Windows setup expectations in the README.
 - Hardened Windows smoke render by normalizing/escaping FFmpeg filter paths so `ass`/`fontsdir` arguments parse correctly.
 - Release workflow now reuses CI-produced binary artifacts (no data/assets bundled); data stays external via `data.tar` download.
 - Added a Scoop manifest template (`scoop/qvm.json`) for Windows.
+- Released 0.1.2 during testing of workflows
 
 ## [0.1.1] - 2025-11-25
 ### Changed
