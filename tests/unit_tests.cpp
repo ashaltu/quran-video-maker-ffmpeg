@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include "types.h"
 #include "config_loader.h"
 #include "cache_utils.h"
@@ -232,7 +233,7 @@ void testVideoGenerator() {
     thumbCommand << thumbCommandFile.rdbuf();
     thumbCommandFile.close();
     assert(thumbCommand.str().find("ffmpeg") != std.string::npos);
-    std::string thumbPath = opts.output.substr(0, opts.output.find_last_of('.')) + ".jpg";
+    std::string thumbPath = (fs::path(opts.output).parent_path() / "thumbnail.jpeg").string();
     assert(thumbCommand.str().find(thumbPath) != std.string::npos);
 
     fs::remove(opts.output);
