@@ -173,7 +173,7 @@ static std::string to_ffmpeg_filter_path(const fs::path& p) {
 #endif
 }
 
-void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& config, const std::vector<VerseData>& verses) {
+void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& config, const std::vector<VerseData>& verses, const std::string& mockCommandOutputPath) {
     try {
         std::cout << "\n=== Starting Video Rendering ===" << std::endl;
         
@@ -326,6 +326,17 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
 
         std::cout << "\nExecuting FFmpeg command:\n" << final_cmd.str() << std::endl << std::endl;
         
+        if (!mockCommandOutputPath.empty()) {
+            std::ofstream mock_file(mockCommandOutputPath);
+            mock_file << final_cmd.str();
+            mock_file.close();
+            // Create dummy output files to satisfy test assertions
+            std::ofstream dummy_video(options.output);
+            dummy_video << "dummy video";
+            dummy_video.close();
+            return;
+        }
+
         if (options.emitProgress) {
             runCommandWithProgress(final_cmd.str(), total_duration);
         } else {
@@ -340,7 +351,7 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
     }
 }
 
-void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfig& config) {
+void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfig& config, const std::string& mockCommandOutputPath) {
     try {
         std::string output_dir = fs::path(options.output).parent_path().string();
         std::string thumbnail_path = (fs::path(output_dir) / "thumbnail.jpeg").string();
@@ -429,6 +440,17 @@ void VideoGenerator::generateThumbnail(const CLIOptions& options, const AppConfi
             << "-frames:v 1 "
             << "-q:v 2 "
             << "\"" << thumbnail_path << "\"";
+
+        if (!mockCommandOutputPath.empty()) {
+            std::ofstream mock_file(mockCommandOutputPath);
+            mock_file << cmd.str();
+            mock_file.close();
+            // Create dummy output file to satisfy test assertions
+            std::ofstream dummy_thumb(thumbnail_path);
+            dummy_thumb << "dummy thumbnail";
+            dummy_thumb.close();
+            return;
+        }
 
         int exit_code = system(cmd.str().c_str());
         if (exit_code != 0) throw std::runtime_error("FFmpeg thumbnail generation failed");

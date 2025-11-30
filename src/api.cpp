@@ -354,7 +354,20 @@ void trim_last_word(std::string& s) {
     }
 }
 
-std::vector<VerseData> API::fetchQuranData(const CLIOptions& options, const AppConfig& config) {
+std::vector<VerseData> API::fetchQuranData(const CLIOptions& options, const AppConfig& config, const std::string& mockDataPath) {
+    if (!mockDataPath.empty()) {
+        std::ifstream f(mockDataPath);
+        json data = json::parse(f);
+        std::vector<VerseData> verses;
+        for (const auto& verse_json : data["verses"]) {
+            VerseData verse;
+            verse.verseKey = verse_json["verse_key"];
+            verse.text = verse_json["text_uthmani"];
+            verses.push_back(verse);
+        }
+        return verses;
+    }
+
     std::cout << "Fetching data for Surah " << options.surah << ", verses " << options.from << "-" << options.to << "..." << std::endl;
     
     auto uniqueSuffix = std::chrono::steady_clock::now().time_since_epoch().count();
