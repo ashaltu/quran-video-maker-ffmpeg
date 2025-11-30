@@ -1,4 +1,4 @@
-#include "api.h"
+#include "LiveApiClient.h"
 #include "quran_data.h"
 #include "timing_parser.h"
 #include "cache_utils.h"
@@ -354,7 +354,7 @@ void trim_last_word(std::string& s) {
     }
 }
 
-std::vector<VerseData> API::fetchQuranData(const CLIOptions& options, const AppConfig& config) {
+std::vector<VerseData> LiveApiClient::fetchQuranData(const CLIOptions& options, const AppConfig& config) {
     std::cout << "Fetching data for Surah " << options.surah << ", verses " << options.from << "-" << options.to << "..." << std::endl;
     
     auto uniqueSuffix = std::chrono::steady_clock::now().time_since_epoch().count();

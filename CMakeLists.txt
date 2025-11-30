@@ -86,7 +86,10 @@ pkg_check_modules(HARFBUZZ REQUIRED IMPORTED_TARGET harfbuzz)
 
 
 add_library(qvm_lib STATIC
-    src/api.cpp src/api.h
+    src/LiveApiClient.cpp src/LiveApiClient.h
+    src/SystemProcessExecutor.cpp src/SystemProcessExecutor.h
+    src/interfaces/IApiClient.h
+    src/interfaces/IProcessExecutor.h
     src/video_generator.cpp src/video_generator.h
     src/timing_parser.cpp src/timing_parser.h
     src/config_loader.cpp src/config_loader.h

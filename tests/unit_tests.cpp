@@ -11,6 +11,12 @@
 #include "timing_parser.h"
 #include "text/text_layout.h"
 #include "audio/custom_audio_processor.h"
+#include "video_generator.h"
+#include "metadata_writer.h"
+#include "MockApiClient.h"
+#include "MockProcessExecutor.h"
+#include <sstream>
+#include <memory>
 
 namespace fs = std::filesystem;
 
@@ -160,8 +166,81 @@ void testCustomAudioPlan() {
     assert(plan.mainEndMs == 82000);
 }
 
+void testApi() {
+    CLIOptions opts;
+    opts.surah = 1;
+    opts.from = 1;
+    opts.to = 1;
+    AppConfig cfg = loadConfig((getProjectRoot() / "config.json").string(), opts);
+    MockApiClient mockApiClient((getProjectRoot() / "tests/mock_api_response.json").string());
+    std::vector<VerseData> verses = mockApiClient.fetchQuranData(opts, cfg);
+    assert(verses.size() == 1);
+    assert(verses[0].verseKey == "1:1");
+    assert(!verses[0].text.empty());
+}
+
+void testMetadataWriter() {
+    CLIOptions opts;
+    opts.surah = 1;
+    opts.from = 1;
+    opts.to = 7;
+    opts.output = (fs::temp_directory_path() / "test_video.mp4").string();
+    AppConfig cfg = loadConfig((getProjectRoot() / "config.json").string(), opts);
+    std::vector<std::string> rawArgs = {"quran-video-generator", "-s", "1", "-f", "1", "-t", "7", "-o", opts.output};
+    MetadataWriter::writeMetadata(opts, cfg, rawArgs);
+    assert(fs::exists(opts.output + ".metadata"));
+    assert(fs::file_size(opts.output + ".metadata") > 0);
+    fs::remove(opts.output + ".metadata");
+}
+
+void testVideoGenerator() {
+    CLIOptions opts;
+    opts.surah = 1;
+    opts.from = 1;
+    opts.to = 1;
+    opts.output = (fs::temp_directory_path() / "test_video.mp4").string();
+    AppConfig cfg = loadConfig((getProjectRoot() / "config.json").string(), opts);
+    std::vector<VerseData> verses = {makeSampleVerse()};
+    std::string dummyAudioPath = (fs::temp_directory_path() / "dummy.wav").string();
+    std::ofstream dummyAudio(dummyAudioPath, std::ios::binary);
+    // Write a minimal WAV header for a silent audio file
+    dummyAudio.write("RIFF", 4);
+    dummyAudio.write("\x24\x00\x00\x00", 4); // ChunkSize
+    dummyAudio.write("WAVE", 4);
+    dummyAudio.write("fmt ", 4);
+    dummyAudio.write("\x10\x00\x00\x00", 4); // Subchunk1Size
+    dummyAudio.write("\x01\x00", 2);       // AudioFormat
+    dummyAudio.write("\x01\x00", 2);       // NumChannels
+    dummyAudio.write("\x44\xAC\x00\x00", 4); // SampleRate
+    dummyAudio.write("\x88\x58\x01\x00", 4); // ByteRate
+    dummyAudio.write("\x02\x00", 2);       // BlockAlign
+    dummyAudio.write("\x10\x00", 2);       // BitsPerSample
+    dummyAudio.write("data", 4);
+    dummyAudio.write("\x00\x00\x00\x00", 4); // Subchunk2Size
+    dummyAudio.close();
+    verses[0].localAudioPath = dummyAudioPath;
+
+    auto mockProcessExecutor = std::make_shared<MockProcessExecutor>();
+    VideoGenerator::generateVideo(opts, cfg, verses, mockProcessExecutor);
+    VideoGenerator::generateThumbnail(opts, cfg, mockProcessExecutor);
+
+    const auto& commands = mockProcessExecutor->getCommands();
+    assert(commands.size() == 2);
+    assert(commands[0].find("ffmpeg") != std::string::npos);
+    assert(commands[0].find(opts.output) != std::string::npos);
+    assert(commands[1].find("ffmpeg") != std::string::npos);
+    std::string thumbPath = (fs::path(opts.output).parent_path() / "thumbnail.jpeg").string();
+    assert(commands[1].find(thumbPath) != std::string::npos);
+
+    fs::remove(opts.output);
+    fs::remove(dummyAudioPath);
+}
+
 int main() {
     fs::current_path(getProjectRoot());
+    testApi();
+    testMetadataWriter();
+    testVideoGenerator();
     testConfigLoader();
     testCacheUtils();
     testLocalization();

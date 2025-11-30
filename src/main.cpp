@@ -5,10 +5,12 @@
 #include "cxxopts.hpp"
 
 #include "types.h"
-#include "api.h"
+#include "LiveApiClient.h"
 #include "video_generator.h"
 #include "quran_data.h"
 #include "config_loader.h"
+#include "SystemProcessExecutor.h"
+#include <memory>
 #include "metadata_writer.h"
 #include "cache_utils.h"
 
@@ -173,10 +175,12 @@ int main(int argc, char* argv[]) {
         std::cout << "Config: " << config.width << "x" << config.height << " @ " << config.fps << "fps, reciter=" << config.reciterId << ", translation=" << config.translationId << std::endl;
         std::cout << "Text growth: " << (config.enableTextGrowth ? "enabled" : "disabled") << std::endl;
 
-        auto verses = API::fetchQuranData(options, config);
+        auto processExecutor = std::make_shared<SystemProcessExecutor>();
+        auto apiClient = std::make_shared<LiveApiClient>();
+        auto verses = apiClient->fetchQuranData(options, config);
         MetadataWriter::writeMetadata(options, config, invocationArgs);
-        VideoGenerator::generateVideo(options, config, verses);
-        VideoGenerator::generateThumbnail(options, config);
+        VideoGenerator::generateVideo(options, config, verses, processExecutor);
+        VideoGenerator::generateThumbnail(options, config, processExecutor);
 
     } catch (const std::exception& e) {
         std::cerr << "Fatal Error: " << e.what() << std::endl;
