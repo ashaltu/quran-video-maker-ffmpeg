@@ -1,5 +1,5 @@
 #include "metadata_writer.h"
-
+#include "quran_data.h"
 #include <cerrno>
 #include <chrono>
 #include <filesystem>
@@ -9,13 +9,51 @@
 #include <stdexcept>
 #include <system_error>
 #include <ctime>
+#include <iostream>
+#include <map>
+#include <vector>
 
 #include <nlohmann/json.hpp>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#include <linux/limits.h>
+#endif
 
 namespace fs = std::filesystem;
 using nlohmann::json;
 
 namespace {
+
+fs::path getExecutablePath() {
+#ifdef _WIN32
+    char buffer[MAX_PATH];
+    GetModuleFileName(NULL, buffer, MAX_PATH);
+    return fs::path(buffer).parent_path();
+#else
+    char buffer[PATH_MAX];
+    ssize_t len = readlink("/proc/self/exe", buffer, sizeof(buffer) - 1);
+    if (len != -1) {
+        buffer[len] = '\0';
+        return fs::path(buffer).parent_path();
+    }
+    return fs::path();
+#endif
+}
+
+std::string getFullTranslationName(const std::string& filename) {
+    std::string name = filename.substr(0, filename.find("-clean.json"));
+    std::replace(name.begin(), name.end(), '-', ' ');
+    name[0] = toupper(name[0]);
+    for (size_t i = 1; i < name.length(); ++i) {
+        if (name[i - 1] == ' ') {
+            name[i] = toupper(name[i]);
+        }
+    }
+    return name;
+}
 
 std::string iso8601Timestamp() {
     const auto now = std::chrono::system_clock::now();
@@ -204,5 +242,67 @@ void writeMetadata(const CLIOptions& options,
     }
     file << metadata.dump(2) << '\n';
 }
+
+void generateBackendMetadata(std::ostream& out) {
+    fs::path dataPath = getExecutablePath() / "data";
+    json metadata;
+
+    // Reciters
+    json reciters = json::array();
+    for (const auto& pair : QuranData::reciterNames) {
+        reciters.push_back({
+            {"id", pair.first},
+            {"name", pair.second}
+        });
+    }
+    metadata["reciters"] = reciters;
+
+    // Translations
+    json translations = json::array();
+    for (const auto& translationFile : QuranData::translationFiles) {
+        fs::path path(translationFile.second);
+        translations.push_back({
+            {"id", translationFile.first},
+            {"name", getFullTranslationName(path.filename().string())}
+        });
+    }
+    metadata["translations"] = translations;
+
+    // Surahs
+    json surahs = json::object();
+    std::ifstream arSurahNamesFile(dataPath / "surah-names/ar.json");
+    json arSurahNamesData;
+    if (arSurahNamesFile.is_open()) {
+        arSurahNamesFile >> arSurahNamesData;
+    }
+
+    for (int i = 1; i <= 114; ++i) {
+        surahs[std::to_string(i)] = {
+            {"en_name", QuranData::surahNames.at(i)},
+            {"ar_name", arSurahNamesData.count(std::to_string(i)) ? arSurahNamesData[std::to_string(i)] : ""},
+            {"verse_count", QuranData::verseCounts.at(i)}
+        };
+    }
+    metadata["surahs"] = surahs;
+
+    // Misc
+    json misc = json::object();
+    std::ifstream surahFile(dataPath / "misc/surah.json");
+    if (surahFile.is_open()) {
+        json surahData;
+        surahFile >> surahData;
+        misc["surah"] = surahData;
+    }
+    std::ifstream numbersFile(dataPath / "misc/numbers.json");
+    if (numbersFile.is_open()) {
+        json numbersData;
+        numbersFile >> numbersData;
+        misc["numbers"] = numbersData;
+    }
+    metadata["misc"] = misc;
+
+    out << metadata.dump() << std::endl;
+}
+
 
 } // namespace MetadataWriter

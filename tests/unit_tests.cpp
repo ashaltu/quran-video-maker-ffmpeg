@@ -17,8 +17,10 @@
 #include "MockProcessExecutor.h"
 #include <sstream>
 #include <memory>
+#include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
+using nlohmann::json;
 
 VerseData makeSampleVerse() {
     VerseData verse;
@@ -236,6 +238,23 @@ void testVideoGenerator() {
     fs::remove(dummyAudioPath);
 }
 
+void testGenerateBackendMetadata() {
+    std::stringstream ss;
+    MetadataWriter::generateBackendMetadata(ss);
+    std::string jsonString = ss.str();
+    json data = json::parse(jsonString);
+
+    assert(data.contains("reciters"));
+    assert(data.contains("translations"));
+    assert(data.contains("surahs"));
+    assert(data.contains("misc"));
+    assert(data["reciters"].is_array());
+    assert(data["translations"].is_array());
+    assert(data["surahs"].is_object());
+    assert(data["misc"].is_object());
+    assert(data["surahs"].size() == 114);
+}
+
 int main() {
     fs::current_path(getProjectRoot());
     testApi();
@@ -249,6 +268,7 @@ int main() {
     testSubtitleBuilder();
     testTextLayoutEngine();
     testCustomAudioPlan();
+    testGenerateBackendMetadata();
     std::cout << "All unit tests passed.\n";
     return 0;
 }
