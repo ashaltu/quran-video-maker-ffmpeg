@@ -94,6 +94,7 @@ add_library(qvm_lib STATIC
     src/timing_parser.cpp src/timing_parser.h
     src/config_loader.cpp src/config_loader.h
     src/metadata_writer.cpp src/metadata_writer.h
+    src/metadata_generator.cpp src/metadata_generator.h
     src/cache_utils.cpp src/cache_utils.h
     src/recitation_utils.cpp src/recitation_utils.h
     src/subtitle_builder.cpp src/subtitle_builder.h

@@ -13,8 +13,15 @@
 #include <memory>
 #include "metadata_writer.h"
 #include "cache_utils.h"
+#include "metadata_generator.h"
 
 namespace fs = std::filesystem;
+
+void listReciters() {
+    for (const auto& pair : QuranData::reciterNames) {
+        std::cout << pair.second << std::endl;
+    }
+}
 
 int main(int argc, char* argv[]) {
     std::vector<std::string> invocationArgs(argv, argv + argc);
@@ -50,10 +57,22 @@ int main(int argc, char* argv[]) {
         ("bg-theme", "Background video theme (space, nature, abstract, minimal)", cxxopts::value<std::string>())
         ("custom-audio", "Custom audio file path or URL (gapless mode only)", cxxopts::value<std::string>())
         ("custom-timing", "Custom timing file (VTT or SRT format)", cxxopts::value<std::string>())
+        ("list-reciters", "List available reciters and exit")
+        ("generate-backend-metadata", "Generate metadata for backend server and exit")
         ("h,help", "Print usage");
     
     cli_parser.parse_positional({"surah", "from", "to"});
     auto result = cli_parser.parse(argc, argv);
+
+    if (result.count("list-reciters")) {
+        listReciters();
+        return 0;
+    }
+
+    if (result.count("generate-backend-metadata")) {
+        MetadataGenerator::generateBackendMetadata();
+        return 0;
+    }
 
     if (result.count("help") || !result.count("surah") || !result.count("from") || !result.count("to")) {
         std::cout << cli_parser.help() << std::endl;

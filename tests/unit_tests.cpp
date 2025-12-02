@@ -17,8 +17,10 @@
 #include "MockProcessExecutor.h"
 #include <sstream>
 #include <memory>
+#include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
+using nlohmann::json;
 
 VerseData makeSampleVerse() {
     VerseData verse;
@@ -236,6 +238,43 @@ void testVideoGenerator() {
     fs::remove(dummyAudioPath);
 }
 
+void testListRecitersCommand() {
+    std::string command = "./build/qvm --list-reciters > reciters.txt";
+    int exitCode = system(command.c_str());
+    assert(exitCode == 0);
+
+    std::ifstream file("reciters.txt");
+    std::string output((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+    std::remove("reciters.txt");
+
+    assert(output.find("Abdur Rahman as-Sudais") != std::string::npos);
+    assert(output.find("Mishari Rashid al-Afasy") != std::string::npos);
+    assert(output.find("Saad al-Ghamdi") != std::string::npos);
+}
+
+void testGenerateBackendMetadata() {
+    std::string command = "./build/qvm --generate-backend-metadata > metadata.json";
+    int exitCode = system(command.c_str());
+    assert(exitCode == 0);
+
+    std::ifstream file("metadata.json");
+    json data;
+    file >> data;
+    file.close();
+    std::remove("metadata.json");
+
+    assert(data.contains("reciters"));
+    assert(data.contains("translations"));
+    assert(data.contains("surahs"));
+    assert(data.contains("misc"));
+    assert(data["reciters"].is_array());
+    assert(data["translations"].is_array());
+    assert(data["surahs"].is_object());
+    assert(data["misc"].is_object());
+    assert(data["surahs"].size() == 114);
+}
+
 int main() {
     fs::current_path(getProjectRoot());
     testApi();
@@ -249,6 +288,8 @@ int main() {
     testSubtitleBuilder();
     testTextLayoutEngine();
     testCustomAudioPlan();
+    testListRecitersCommand();
+    testGenerateBackendMetadata();
     std::cout << "All unit tests passed.\n";
     return 0;
 }
