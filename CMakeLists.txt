@@ -70,14 +70,6 @@ if(NOT nlohmann_json_FOUND)
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
-# Dependency: googletest
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG        v1.14.0
-)
-FetchContent_MakeAvailable(googletest)
-
 # Find required system libraries
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
@@ -136,13 +128,8 @@ target_link_libraries(qvm PRIVATE qvm_lib)
 add_executable(unit_tests tests/unit_tests.cpp)
 target_link_libraries(unit_tests PRIVATE qvm_lib)
 
-add_executable(reciter_listing_test tests/test_reciter_listing.cpp)
-target_link_libraries(reciter_listing_test PRIVATE qvm_lib gtest gmock gtest_main)
-
-
 enable_testing()
 add_test(NAME unit COMMAND unit_tests WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-add_test(NAME reciter_listing COMMAND reciter_listing_test WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0)
     target_link_libraries(qvm PRIVATE stdc++fs)

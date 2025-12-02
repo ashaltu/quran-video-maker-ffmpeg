@@ -236,6 +236,21 @@ void testVideoGenerator() {
     fs::remove(dummyAudioPath);
 }
 
+void testListRecitersCommand() {
+    std::string command = "./build/qvm --list-reciters > reciters.txt";
+    int exitCode = system(command.c_str());
+    assert(exitCode == 0);
+
+    std::ifstream file("reciters.txt");
+    std::string output((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.close();
+    std::remove("reciters.txt");
+
+    assert(output.find("Abdur Rahman as-Sudais") != std::string::npos);
+    assert(output.find("Mishari Rashid al-Afasy") != std::string::npos);
+    assert(output.find("Saad al-Ghamdi") != std::string::npos);
+}
+
 int main() {
     fs::current_path(getProjectRoot());
     testApi();
@@ -249,6 +264,7 @@ int main() {
     testSubtitleBuilder();
     testTextLayoutEngine();
     testCustomAudioPlan();
+    testListRecitersCommand();
     std::cout << "All unit tests passed.\n";
     return 0;
 }
