@@ -50,10 +50,30 @@ int main(int argc, char* argv[]) {
         ("bg-theme", "Background video theme (space, nature, abstract, minimal)", cxxopts::value<std::string>())
         ("custom-audio", "Custom audio file path or URL (gapless mode only)", cxxopts::value<std::string>())
         ("custom-timing", "Custom timing file (VTT or SRT format)", cxxopts::value<std::string>())
+        ("generate-backend-metadata,gbm", "Generate metadata for backend server and exit")
         ("h,help", "Print usage");
     
     cli_parser.parse_positional({"surah", "from", "to"});
     auto result = cli_parser.parse(argc, argv);
+
+    if (result.count("generate-backend-metadata")) {
+        if (!result.count("output")) {
+            std::cerr << "Error: --output must be provided when using --generate-backend-metadata and must point to a .json file." << std::endl;
+            return 1;
+        }
+        fs::path metadataOutput = result["output"].as<std::string>();
+        if (metadataOutput.extension() != ".json") {
+            std::cerr << "Error: --output path must have a .json extension for backend metadata generation." << std::endl;
+            return 1;
+        }
+        try {
+            MetadataWriter::generateBackendMetadata(metadataOutput.string());
+            return 0;
+        } catch (const std::exception& e) {
+            std::cerr << "Fatal Error: " << e.what() << std::endl;
+            return 1;
+        }
+    }
 
     if (result.count("help") || !result.count("surah") || !result.count("from") || !result.count("to")) {
         std::cout << cli_parser.help() << std::endl;

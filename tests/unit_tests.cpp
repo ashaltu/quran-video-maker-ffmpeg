@@ -15,10 +15,11 @@
 #include "metadata_writer.h"
 #include "MockApiClient.h"
 #include "MockProcessExecutor.h"
-#include <sstream>
 #include <memory>
+#include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
+using nlohmann::json;
 
 VerseData makeSampleVerse() {
     VerseData verse;
@@ -236,6 +237,39 @@ void testVideoGenerator() {
     fs::remove(dummyAudioPath);
 }
 
+void testGenerateBackendMetadata() {
+    fs::path tempDir = "temp_backend_metadata";
+    fs::path tempPath = tempDir / "backend-metadata-test.json";
+    if (fs::exists(tempPath)) {
+        fs::remove(tempPath);
+    }
+    if (fs::exists(tempDir)) {
+        fs::remove_all(tempDir);
+    }
+
+    MetadataWriter::generateBackendMetadata(tempPath.string());
+
+    assert(fs::exists(tempPath));
+
+    std::ifstream in(tempPath);
+    json data;
+    in >> data;
+    in.close();
+
+    assert(data.contains("reciters"));
+    assert(data.contains("translations"));
+    assert(data.contains("surahs"));
+    assert(data.contains("misc"));
+    assert(data["reciters"].is_array());
+    assert(data["translations"].is_array());
+    assert(data["surahs"].is_object());
+    assert(data["misc"].is_object());
+    assert(data["surahs"].size() == 114);
+
+    fs::remove(tempPath);
+    fs::remove_all(tempDir);
+}
+
 int main() {
     fs::current_path(getProjectRoot());
     testApi();
@@ -249,6 +283,7 @@ int main() {
     testSubtitleBuilder();
     testTextLayoutEngine();
     testCustomAudioPlan();
+    testGenerateBackendMetadata();
     std::cout << "All unit tests passed.\n";
     return 0;
 }
