@@ -12,17 +12,23 @@ class SeededRandom {
 public:
     explicit SeededRandom(unsigned int seed);
     int nextInt(int min, int max);
-    
-    template<typename T>
-    const T& choice(const std::vector<T>& items);
+    void shuffle(std::vector<std::pair<std::string, std::string>>& items);
 
 private:
     std::mt19937 gen;
 };
 
+// A single entry in a range's playlist
+struct PlaylistEntry {
+    std::string theme;
+    std::string videoKey;
+};
+
 struct SelectionState {
-    std::map<std::string, std::set<std::string>> usedVideos;  // theme -> set of used video keys
-    std::map<std::string, std::set<std::string>> exhaustedThemesPerRange;  // range key -> exhausted themes
+    // Cached playlists per range (built once, then cycled)
+    std::map<std::string, std::vector<PlaylistEntry>> rangePlaylists;
+    // Current position in each range's playlist
+    std::map<std::string, size_t> rangePlaylistIndices;
 };
 
 // Represents a verse range with its themes and time allocation
@@ -39,32 +45,27 @@ class Selector {
 public:
     explicit Selector(const std::string& metadataPath, unsigned int seed = 99);
     
-    // Get themes for a verse range (original method - returns all themes)
+    // Get themes for a verse range (returns all themes)
     std::vector<std::string> getThemesForVerses(int surah, int from, int to);
     
     // Get verse range segments with time allocations for the requested range
     std::vector<VerseRangeSegment> getVerseRangeSegments(int surah, int from, int to);
     
-    // Get themes for a specific time position (0.0 to 1.0)
+    // Get the range segment for a specific time position (0.0 to 1.0)
     const VerseRangeSegment* getRangeForTimePosition(
         const std::vector<VerseRangeSegment>& segments,
         double timeFraction);
     
-    // Select a theme from available themes for a specific range
-    std::string selectThemeForRange(
+    // Build or get the playlist for a range
+    const std::vector<PlaylistEntry>& getOrBuildPlaylist(
         const VerseRangeSegment& range,
         const std::map<std::string, std::vector<std::string>>& themeVideosCache,
         SelectionState& state);
     
-    // Select a video from theme ensuring no repeats until exhausted
-    std::string selectVideoFromTheme(const std::string& theme,
-                                    const std::vector<std::string>& availableVideos,
-                                    SelectionState& state);
-
-    // Legacy method for backward compatibility
-    std::string selectTheme(const std::vector<std::string>& themes, 
-                           const std::string& verseRange,
-                           SelectionState& state);
+    // Get the next video from a range's playlist (cycles automatically)
+    PlaylistEntry getNextVideoForRange(
+        const std::string& rangeKey,
+        SelectionState& state);
 
 private:
     nlohmann::json metadata;
@@ -73,6 +74,11 @@ private:
     std::vector<int> parseVerseRange(const std::string& rangeStr);
     std::vector<std::string> findRangeForVerse(int surah, int verse);
     std::pair<int, int> findRangeBoundsForVerse(int surah, int verse);
+    
+    // Build an interleaved playlist from themes and their videos
+    std::vector<PlaylistEntry> buildPlaylist(
+        const std::vector<std::string>& themes,
+        const std::map<std::string, std::vector<std::string>>& themeVideosCache);
 };
 
 } // namespace VideoSelector

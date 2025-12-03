@@ -17,16 +17,12 @@ int SeededRandom::nextInt(int min, int max) {
     return dis(gen);
 }
 
-template<typename T>
-const T& SeededRandom::choice(const std::vector<T>& items) {
-    if (items.empty()) {
-        throw std::runtime_error("Cannot choose from empty vector");
+void SeededRandom::shuffle(std::vector<std::pair<std::string, std::string>>& items) {
+    for (size_t i = items.size() - 1; i > 0; --i) {
+        size_t j = nextInt(0, i + 1);
+        std::swap(items[i], items[j]);
     }
-    return items[nextInt(0, items.size())];
 }
-
-// Explicit template instantiation
-template const std::string& SeededRandom::choice<std::string>(const std::vector<std::string>&);
 
 Selector::Selector(const std::string& metadataPath, unsigned int seed)
     : random(seed) {
@@ -140,7 +136,7 @@ std::vector<VerseRangeSegment> Selector::getVerseRangeSegments(int surah, int fr
             segment.themes = findRangeForVerse(surah, verse);
             rangeMap[rangeKey] = segment;
         } else {
-            // Update the end verse if needed (in case of overlapping discovery)
+            // Update the end verse if needed
             rangeMap[rangeKey].endVerse = std::max(rangeMap[rangeKey].endVerse, 
                                                     std::min(bounds.second, to));
         }
@@ -196,107 +192,138 @@ const VerseRangeSegment* Selector::getRangeForTimePosition(
     return nullptr;
 }
 
-std::string Selector::selectThemeForRange(
+std::vector<PlaylistEntry> Selector::buildPlaylist(
+    const std::vector<std::string>& themes,
+    const std::map<std::string, std::vector<std::string>>& themeVideosCache) {
+    
+    // Build lists of videos per theme (only themes with videos)
+    std::vector<std::pair<std::string, std::vector<std::string>>> themeVideos;
+    for (const auto& theme : themes) {
+        auto it = themeVideosCache.find(theme);
+        if (it != themeVideosCache.end() && !it->second.empty()) {
+            themeVideos.push_back({theme, it->second});
+        }
+    }
+    
+    if (themeVideos.empty()) {
+        return {};
+    }
+    
+    // Shuffle the themes order
+    std::vector<std::pair<std::string, std::string>> themePairs;
+    for (const auto& [theme, _] : themeVideos) {
+        themePairs.push_back({theme, ""});
+    }
+    random.shuffle(themePairs);
+    
+    // Rebuild themeVideos in shuffled order
+    std::vector<std::pair<std::string, std::vector<std::string>>> shuffledThemeVideos;
+    for (const auto& [theme, _] : themePairs) {
+        for (const auto& tv : themeVideos) {
+            if (tv.first == theme) {
+                shuffledThemeVideos.push_back(tv);
+                break;
+            }
+        }
+    }
+    themeVideos = shuffledThemeVideos;
+    
+    // Shuffle videos within each theme
+    for (auto& [theme, videos] : themeVideos) {
+        std::vector<std::pair<std::string, std::string>> videoPairs;
+        for (const auto& v : videos) {
+            videoPairs.push_back({v, ""});
+        }
+        random.shuffle(videoPairs);
+        videos.clear();
+        for (const auto& [v, _] : videoPairs) {
+            videos.push_back(v);
+        }
+    }
+    
+    // Interleave: cycle through themes, taking one video from each in turn
+    std::vector<PlaylistEntry> playlist;
+    std::vector<size_t> indices(themeVideos.size(), 0);
+    
+    bool hasMore = true;
+    while (hasMore) {
+        hasMore = false;
+        for (size_t t = 0; t < themeVideos.size(); ++t) {
+            const auto& [theme, videos] = themeVideos[t];
+            if (indices[t] < videos.size()) {
+                PlaylistEntry entry;
+                entry.theme = theme;
+                entry.videoKey = videos[indices[t]];
+                playlist.push_back(entry);
+                indices[t]++;
+                if (indices[t] < videos.size()) {
+                    hasMore = true;
+                }
+            }
+        }
+        // Check if any theme still has videos
+        if (!hasMore) {
+            for (size_t t = 0; t < themeVideos.size(); ++t) {
+                if (indices[t] < themeVideos[t].second.size()) {
+                    hasMore = true;
+                    break;
+                }
+            }
+        }
+    }
+    
+    return playlist;
+}
+
+const std::vector<PlaylistEntry>& Selector::getOrBuildPlaylist(
     const VerseRangeSegment& range,
     const std::map<std::string, std::vector<std::string>>& themeVideosCache,
     SelectionState& state) {
     
-    if (range.themes.empty()) {
-        throw std::runtime_error("No themes available for range: " + range.rangeKey);
+    auto it = state.rangePlaylists.find(range.rangeKey);
+    if (it == state.rangePlaylists.end()) {
+        // Build playlist for this range
+        auto playlist = buildPlaylist(range.themes, themeVideosCache);
+        state.rangePlaylists[range.rangeKey] = std::move(playlist);
+        state.rangePlaylistIndices[range.rangeKey] = 0;
+        
+        // Log the playlist
+        std::cout << "    Built playlist for " << range.rangeKey << ": ";
+        const auto& pl = state.rangePlaylists[range.rangeKey];
+        for (size_t i = 0; i < pl.size(); ++i) {
+            if (i > 0) std::cout << " -> ";
+            std::cout << pl[i].theme << "/" << pl[i].videoKey.substr(pl[i].videoKey.rfind('/') + 1);
+        }
+        std::cout << std::endl;
     }
     
-    // Get exhausted themes for this specific range
-    auto& exhaustedForRange = state.exhaustedThemesPerRange[range.rangeKey];
-    
-    // Filter to themes that have videos and aren't exhausted
-    std::vector<std::string> available;
-    for (const auto& theme : range.themes) {
-        auto cacheIt = themeVideosCache.find(theme);
-        if (cacheIt == themeVideosCache.end() || cacheIt->second.empty()) {
-            continue;  // No videos for this theme
-        }
-        
-        if (exhaustedForRange.find(theme) == exhaustedForRange.end()) {
-            available.push_back(theme);
-        }
-    }
-    
-    // If all themes exhausted for this range, reset
-    if (available.empty()) {
-        std::cout << "    All themes exhausted for range " << range.rangeKey << ", resetting..." << std::endl;
-        exhaustedForRange.clear();
-        
-        // Rebuild available list
-        for (const auto& theme : range.themes) {
-            auto cacheIt = themeVideosCache.find(theme);
-            if (cacheIt != themeVideosCache.end() && !cacheIt->second.empty()) {
-                available.push_back(theme);
-            }
-        }
-        
-        if (available.empty()) {
-            throw std::runtime_error("No themes with videos available for range: " + range.rangeKey);
-        }
-    }
-    
-    // Select randomly from available themes
-    return random.choice(available);
+    return state.rangePlaylists[range.rangeKey];
 }
 
-std::string Selector::selectTheme(const std::vector<std::string>& themes,
-                                 const std::string& verseRange,
-                                 SelectionState& state) {
-    if (themes.empty()) {
-        throw std::runtime_error("No themes available for selection");
+PlaylistEntry Selector::getNextVideoForRange(
+    const std::string& rangeKey,
+    SelectionState& state) {
+    
+    auto playlistIt = state.rangePlaylists.find(rangeKey);
+    if (playlistIt == state.rangePlaylists.end() || playlistIt->second.empty()) {
+        throw std::runtime_error("No playlist found for range: " + rangeKey);
     }
     
-    // Legacy implementation - kept for backward compatibility
-    auto& exhausted = state.exhaustedThemesPerRange[verseRange];
+    const auto& playlist = playlistIt->second;
+    size_t& index = state.rangePlaylistIndices[rangeKey];
     
-    std::vector<std::string> available;
-    for (const auto& theme : themes) {
-        if (exhausted.find(theme) == exhausted.end()) {
-            available.push_back(theme);
-        }
+    // Get current entry
+    const PlaylistEntry& entry = playlist[index];
+    
+    // Advance index (wrap around)
+    index = (index + 1) % playlist.size();
+    
+    // Log if we wrapped around
+    if (index == 0) {
+        std::cout << "    Playlist for " << rangeKey << " cycling back to start" << std::endl;
     }
     
-    if (available.empty()) {
-        exhausted.clear();
-        available = themes;
-    }
-    
-    return random.choice(available);
-}
-
-std::string Selector::selectVideoFromTheme(const std::string& theme,
-                                          const std::vector<std::string>& availableVideos,
-                                          SelectionState& state) {
-    if (availableVideos.empty()) {
-        throw std::runtime_error("No videos available in theme: " + theme);
-    }
-    
-    auto& used = state.usedVideos[theme];
-    std::vector<std::string> unused;
-    
-    // Find unused videos
-    for (const auto& video : availableVideos) {
-        if (used.find(video) == used.end()) {
-            unused.push_back(video);
-        }
-    }
-    
-    // If all videos used, reset for this theme
-    if (unused.empty()) {
-        std::cout << "    All videos in theme '" << theme << "' used, resetting..." << std::endl;
-        used.clear();
-        unused = availableVideos;
-    }
-    
-    // Select randomly from unused videos
-    std::string selected = random.choice(unused);
-    used.insert(selected);
-    
-    return selected;
+    return entry;
 }
 
 } // namespace VideoSelector

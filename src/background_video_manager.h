@@ -11,7 +11,9 @@ struct VideoSegment {
     std::string path;
     std::string theme;
     double duration;
+    double trimmedDuration;  // Duration after trimming (if trimmed)
     bool isLocal;
+    bool needsTrim;
 };
 
 class Manager {
@@ -19,7 +21,6 @@ public:
     explicit Manager(const AppConfig& config, const CLIOptions& options);
     
     // Select and prepare background video(s) for the given verse range and total duration
-    // This will stitch multiple videos together if needed
     std::string prepareBackgroundVideo(double totalDurationSeconds);
     
     // Cleanup temporary files
