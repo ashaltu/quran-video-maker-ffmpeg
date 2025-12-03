@@ -1,12 +1,12 @@
 #include "background_video_manager.h"
 #include "r2_client.h"
+#include "cache_utils.h"
 #include <iostream>
 #include <chrono>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <cmath>
-#include "cache_utils.h"
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -38,11 +38,9 @@ double Manager::getVideoDuration(const std::string& path) {
 }
 
 std::string Manager::getCachedVideoPath(const std::string& remoteKey) {
-    // Use the same cache directory as audio
     cacheDir_ = CacheUtils::getCacheRoot() / "backgrounds";
     fs::create_directories(cacheDir_);
     
-    // Convert remote key to safe filename
     std::string safeFilename = remoteKey;
     std::replace(safeFilename.begin(), safeFilename.end(), '/', '_');
     return (cacheDir_ / safeFilename).string();
@@ -60,6 +58,30 @@ void Manager::cacheVideo(const std::string& remoteKey, const std::string& localP
     }
 }
 
+std::vector<std::string> Manager::listLocalVideos(const std::string& theme) {
+    std::vector<std::string> videos;
+    fs::path themePath = fs::path(config_.videoSelection.localVideoDirectory) / theme;
+    
+    if (!fs::exists(themePath) || !fs::is_directory(themePath)) {
+        return videos;
+    }
+    
+    for (const auto& entry : fs::directory_iterator(themePath)) {
+        if (!entry.is_regular_file()) continue;
+        
+        std::string ext = entry.path().extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        
+        if (ext == ".mp4" || ext == ".mov" || ext == ".avi" || 
+            ext == ".mkv" || ext == ".webm") {
+            // Return relative path from video directory
+            videos.push_back(fs::relative(entry.path(), config_.videoSelection.localVideoDirectory).string());
+        }
+    }
+    
+    return videos;
+}
+
 std::string Manager::buildFilterComplex(double totalDurationSeconds, 
                                         std::vector<std::string>& outputInputFiles) {
     if (!config_.videoSelection.enableDynamicBackgrounds) {
@@ -69,25 +91,45 @@ std::string Manager::buildFilterComplex(double totalDurationSeconds,
     try {
         std::cout << "Selecting dynamic background videos..." << std::endl;
         
-        // Initialize components
+        // Validate source
+        if (config_.videoSelection.useLocalDirectory) {
+            if (config_.videoSelection.localVideoDirectory.empty() || 
+                !fs::exists(config_.videoSelection.localVideoDirectory)) {
+                throw std::runtime_error("Local video directory not found: " + 
+                                       config_.videoSelection.localVideoDirectory);
+            }
+            std::cout << "  Using local directory: " << config_.videoSelection.localVideoDirectory << std::endl;
+        } else {
+            std::cout << "  Using R2 bucket: " << config_.videoSelection.r2Bucket << std::endl;
+        }
+        
+        // Initialize selector with configured seed
         VideoSelector::Selector selector(
             config_.videoSelection.themeMetadataPath,
             config_.videoSelection.seed
         );
         
-        R2::R2Config r2Config{
-            config_.videoSelection.r2Endpoint,
-            config_.videoSelection.r2AccessKey,
-            config_.videoSelection.r2SecretKey,
-            config_.videoSelection.r2Bucket,
-            config_.videoSelection.usePublicBucket
-        };
-        R2::Client r2Client(r2Config);
-        
         // Get verse range segments with time allocations
         auto verseRangeSegments = selector.getVerseRangeSegments(
             options_.surah, options_.from, options_.to
         );
+        
+        if (verseRangeSegments.empty()) {
+            throw std::runtime_error("No verse range segments found for the specified range");
+        }
+        
+        // Log the verse range segments
+        std::cout << "  Verse range segments:" << std::endl;
+        for (const auto& seg : verseRangeSegments) {
+            std::cout << "    " << seg.rangeKey << " (verses " << seg.startVerse << "-" << seg.endVerse 
+                      << ", time " << (seg.startTimeFraction * 100) << "%-" << (seg.endTimeFraction * 100) << "%)"
+                      << " themes: [";
+            for (size_t i = 0; i < seg.themes.size(); ++i) {
+                if (i > 0) std::cout << ", ";
+                std::cout << seg.themes[i];
+            }
+            std::cout << "]" << std::endl;
+        }
         
         // Calculate absolute time boundaries for each range
         std::map<std::string, double> rangeStartTimes;
@@ -97,22 +139,46 @@ std::string Manager::buildFilterComplex(double totalDurationSeconds,
             rangeEndTimes[seg.rangeKey] = seg.endTimeFraction * totalDurationSeconds;
         }
         
-        // Collect themes and cache videos
+        // Collect all unique themes
         std::set<std::string> allThemes;
         for (const auto& seg : verseRangeSegments) {
             allThemes.insert(seg.themes.begin(), seg.themes.end());
         }
         
+        // Initialize R2 client if using R2
+        std::unique_ptr<R2::Client> r2Client;
+        if (!config_.videoSelection.useLocalDirectory) {
+            R2::R2Config r2Config{
+                config_.videoSelection.r2Endpoint,
+                config_.videoSelection.r2AccessKey,
+                config_.videoSelection.r2SecretKey,
+                config_.videoSelection.r2Bucket,
+                config_.videoSelection.usePublicBucket
+            };
+            r2Client = std::make_unique<R2::Client>(r2Config);
+        }
+        
+        // Build video cache for all themes
         std::map<std::string, std::vector<std::string>> themeVideosCache;
         for (const auto& theme : allThemes) {
             try {
-                themeVideosCache[theme] = r2Client.listVideosInTheme(theme);
-            } catch (...) {
+                if (config_.videoSelection.useLocalDirectory) {
+                    themeVideosCache[theme] = listLocalVideos(theme);
+                } else {
+                    themeVideosCache[theme] = r2Client->listVideosInTheme(theme);
+                }
+                
+                if (themeVideosCache[theme].empty()) {
+                    std::cout << "  Warning: No videos found for theme '" << theme << "'" << std::endl;
+                }
+            } catch (const std::exception& e) {
+                std::cerr << "  Error listing videos for theme '" << theme << "': " << e.what() << std::endl;
                 themeVideosCache[theme] = {};
             }
         }
         
-        // Build playlists
+        // Build playlists for all ranges
+        std::cout << "  Building playlists:" << std::endl;
         for (const auto& seg : verseRangeSegments) {
             selector.getOrBuildPlaylist(seg, themeVideosCache, selectionState_);
         }
@@ -124,15 +190,11 @@ std::string Manager::buildFilterComplex(double totalDurationSeconds,
         std::string currentRangeKey;
         const VideoSelector::VerseRangeSegment* currentRange = nullptr;
         
-        while (currentTime < totalDurationSeconds) {
+        // Calculate reasonable segment limit based on duration
+        int maxSegments = std::max(500, static_cast<int>(totalDurationSeconds / 5.0));
+        
+        while (currentTime < totalDurationSeconds && segmentCount < maxSegments) {
             segmentCount++;
-            
-            // Calculate reasonable safety segment limit based on duration
-            int maxSegments = std::max(1000, static_cast<int>(totalDurationSeconds / 5.0));
-            if (segmentCount > maxSegments) {
-                std::cerr << "  Warning: Reached segment limit, stopping collection" << std::endl;
-                break;
-            }
             
             double timeFraction = currentTime / totalDurationSeconds;
             
@@ -154,32 +216,58 @@ std::string Manager::buildFilterComplex(double totalDurationSeconds,
             double rangeEndTime = rangeEndTimes[currentRangeKey];
             double timeRemainingInRange = rangeEndTime - currentTime;
             
-            auto entry = selector.getNextVideoForRange(currentRangeKey, selectionState_);
+            // Get next video from the range's playlist
+            VideoSelector::PlaylistEntry entry;
+            try {
+                entry = selector.getNextVideoForRange(currentRangeKey, selectionState_);
+            } catch (const std::exception& e) {
+                std::cerr << "  Error getting next video: " << e.what() << std::endl;
+                break;
+            }
             
-            // Check cache first
+            std::cout << "  Segment " << segmentCount 
+                      << " [" << currentRangeKey << "]"
+                      << " - theme: " << entry.theme 
+                      << ", video: " << fs::path(entry.videoKey).filename().string();
+            
+            // Get the video (download from R2 or use local)
             std::string localPath;
-            if (isVideoCached(entry.videoKey)) {
-                localPath = getCachedVideoPath(entry.videoKey);
-                std::cout << "  Using cached: " << fs::path(entry.videoKey).filename() << std::endl;
-            } else {
-                // Download to temp then cache
-                fs::path tempPath = tempDir_ / fs::path(entry.videoKey).filename();
-                try {
-                    localPath = r2Client.downloadVideo(entry.videoKey, tempPath);
-                    cacheVideo(entry.videoKey, localPath);
-                    tempFiles_.push_back(tempPath);
-                } catch (const std::exception& e) {
-                    std::cerr << "  Download failed: " << e.what() << std::endl;
+            
+            if (config_.videoSelection.useLocalDirectory) {
+                // Local directory - construct full path
+                localPath = (fs::path(config_.videoSelection.localVideoDirectory) / entry.videoKey).string();
+                if (!fs::exists(localPath)) {
+                    std::cerr << " (file not found)" << std::endl;
                     continue;
+                }
+            } else {
+                // R2 - check cache first, then download
+                if (isVideoCached(entry.videoKey)) {
+                    localPath = getCachedVideoPath(entry.videoKey);
+                    std::cout << " (cached)";
+                } else {
+                    fs::path tempPath = tempDir_ / fs::path(entry.videoKey).filename();
+                    try {
+                        localPath = r2Client->downloadVideo(entry.videoKey, tempPath);
+                        cacheVideo(entry.videoKey, localPath);
+                        tempFiles_.push_back(tempPath);
+                    } catch (const std::exception& e) {
+                        std::cerr << " (download failed: " << e.what() << ")" << std::endl;
+                        continue;
+                    }
                 }
             }
             
+            // Get video duration
             double duration = getVideoDuration(localPath);
             if (duration <= 0) {
-                std::cerr << "  Invalid duration for video, skipping" << std::endl;
+                std::cerr << " (invalid duration)" << std::endl;
                 continue;
             }
             
+            std::cout << ", duration: " << duration << "s";
+            
+            // Build segment info
             VideoSegment segment;
             segment.path = localPath;
             segment.theme = entry.theme;
@@ -193,17 +281,17 @@ std::string Manager::buildFilterComplex(double totalDurationSeconds,
                 // This video would cross into the next range - trim it
                 segment.needsTrim = true;
                 segment.trimmedDuration = timeRemainingInRange;
-                std::cout << "  Trimming video from " << duration << "s to " 
-                          << segment.trimmedDuration << "s to fit range boundary" << std::endl;
+                std::cout << " (trimming to " << segment.trimmedDuration << "s to fit range)";
             }
             
             // Also check if it would exceed total duration
             if (currentTime + segment.trimmedDuration > totalDurationSeconds) {
                 segment.needsTrim = true;
                 segment.trimmedDuration = totalDurationSeconds - currentTime;
-                std::cout << "  Trimming video to " << segment.trimmedDuration 
-                          << "s to match total duration" << std::endl;
+                std::cout << " (trimming to " << segment.trimmedDuration << "s to end)";
             }
+            
+            std::cout << std::endl;
             
             segments.push_back(segment);
             outputInputFiles.push_back(localPath);
@@ -215,10 +303,13 @@ std::string Manager::buildFilterComplex(double totalDurationSeconds,
             return "";
         }
         
+        std::cout << "  Collected " << segments.size() << " segments, total duration: " 
+                  << currentTime << " seconds" << std::endl;
+        
         // Build concat filter
         std::ostringstream filter;
         
-        // First, scale and trim all inputs to same size
+        // First, scale and trim all inputs
         for (size_t i = 0; i < segments.size(); ++i) {
             filter << "[" << i << ":v]";
             
@@ -227,7 +318,10 @@ std::string Manager::buildFilterComplex(double totalDurationSeconds,
                 filter << "trim=duration=" << segments[i].trimmedDuration << ",setpts=PTS-STARTPTS,";
             }
             
+            // Scale to configured dimensions and normalize parameters
             filter << "scale=" << config_.width << ":" << config_.height 
+                   << ",fps=" << config_.fps
+                   << ",format=" << config_.pixelFormat
                    << ",setsar=1[v" << i << "]; ";
         }
         
@@ -238,12 +332,11 @@ std::string Manager::buildFilterComplex(double totalDurationSeconds,
         filter << "concat=n=" << segments.size() << ":v=1:a=0[bg]; ";
         filter << "[bg]setpts=PTS-STARTPTS";
         
-        std::cout << "  Selected " << segments.size() << " video segments, total duration: " 
-                  << currentTime << " seconds" << std::endl;
         return filter.str();
         
     } catch (const std::exception& e) {
-        std::cerr << "Warning: Dynamic background selection failed: " << e.what() << std::endl;
+        std::cerr << "Warning: Dynamic background selection failed: " << e.what() 
+                  << ", using default background" << std::endl;
         return "";
     }
 }

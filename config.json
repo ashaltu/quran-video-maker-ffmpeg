@@ -79,18 +79,20 @@
 
   "_comment_video_selection": "Dynamic background video selection",
   "videoSelection": {
-    "_comment": "Dynamic background video configuration",
     "enableDynamicBackgrounds": false,
-    "_comment_seed": "Seed for reproducible random video selection",
     "seed": 99,
-    "_comment_r2": "R2 storage configuration for background videos",
+    
+    "_comment": "For local directory usage",
+    "useLocalDirectory": false,
+    "localVideoDirectory": "/path/to/local/videos",
+    
+    "_comment": "For R2 usage",
     "r2Endpoint": "${R2_ENDPOINT}",
     "r2AccessKey": "${R2_ACCESS_KEY}",
     "r2SecretKey": "${R2_SECRET_KEY}",
     "r2Bucket": "quran-background-videos",
-    "_comment_metadata": "Path to theme metadata file mapping verses to themes",
+    
     "themeMetadataPath": "metadata/surah-themes.json",
-    "_comment_access": "Use public bucket access (no credentials required for download)",
     "usePublicBucket": true
   }
 }

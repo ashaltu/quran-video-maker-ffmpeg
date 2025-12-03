@@ -23,6 +23,8 @@ struct VideoSelectionConfig {
     unsigned int seed = 99;
     bool enableDynamicBackgrounds = false;
     bool usePublicBucket = true;  // Default to public access
+    bool useLocalDirectory = false;  // Use local directory instead of R2
+    std::string localVideoDirectory = "";  // Path to local video directory
 };
 
 struct AppConfig {

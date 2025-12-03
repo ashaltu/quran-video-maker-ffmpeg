@@ -53,6 +53,7 @@ int main(int argc, char* argv[]) {
         ("generate-backend-metadata,gbm", "Generate metadata for backend server and exit")
         ("seed", "Deterministic value for reproducible results", cxxopts::value<unsigned int>()->default_value("99"))
         ("enable-dynamic-bg", "Enable dynamic background video selection based on themes", cxxopts::value<bool>()->default_value("false"))
+        ("local-video-dir", "Use local directory for dynamic backgrounds instead of R2", cxxopts::value<std::string>())
         ("r2-endpoint", "R2 endpoint URL (e.g., https://pub-xxx.r2.dev)", cxxopts::value<std::string>())
         ("r2-access-key", "R2 access key (for private buckets)", cxxopts::value<std::string>())
         ("r2-secret-key", "R2 secret key (for private buckets)", cxxopts::value<std::string>())
@@ -152,6 +153,9 @@ int main(int argc, char* argv[]) {
     // Dynamic background video options
     options.videoSelection.seed = result["seed"].as<unsigned int>();
     options.videoSelection.enableDynamicBackgrounds = result["enable-dynamic-bg"].as<bool>();
+    if (result.count("local-video-dir")) {
+        options.videoSelection.localVideoDirectory = result["local-video-dir"].as<std::string>();
+    }
     if (result.count("r2-endpoint")) options.videoSelection.r2Endpoint = result["r2-endpoint"].as<std::string>();
     if (result.count("r2-access-key")) {
         options.videoSelection.r2AccessKey = result["r2-access-key"].as<std::string>();

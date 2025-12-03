@@ -20,8 +20,11 @@ class Manager {
 public:
     explicit Manager(const AppConfig& config, const CLIOptions& options);
     
+    // Build filter complex for dynamic backgrounds (no pre-stitching)
     std::string buildFilterComplex(double totalDurationSeconds, 
                                    std::vector<std::string>& outputInputFiles);
+    
+    // Cleanup temporary files
     void cleanup();
 
 private:
@@ -32,12 +35,16 @@ private:
     std::vector<std::filesystem::path> tempFiles_;
     VideoSelector::SelectionState selectionState_;
     
+    // Get video duration using libav
     double getVideoDuration(const std::string& path);
     
-    // Cache management methods
+    // Cache management for R2 videos
     std::string getCachedVideoPath(const std::string& remoteKey);
     bool isVideoCached(const std::string& remoteKey);
     void cacheVideo(const std::string& remoteKey, const std::string& localPath);
+    
+    // Local directory support
+    std::vector<std::string> listLocalVideos(const std::string& theme);
 };
 
 } // namespace BackgroundVideo

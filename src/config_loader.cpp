@@ -342,14 +342,20 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
         cfg.videoSelection.r2Bucket = vs.value("r2Bucket", "quran-background-videos");
         cfg.videoSelection.themeMetadataPath = resolvePath(vs.value("themeMetadataPath", "metadata/surah-themes.json"));
         cfg.videoSelection.usePublicBucket = vs.value("usePublicBucket", true);
+        cfg.videoSelection.useLocalDirectory = vs.value("useLocalDirectory", false);
+        cfg.videoSelection.localVideoDirectory = resolvePath(vs.value("localVideoDirectory", ""));
     }
-    
+
     // CLI overrides for video selection
     if (options.videoSelection.enableDynamicBackgrounds) {
         cfg.videoSelection.enableDynamicBackgrounds = true;
     }
     if (options.videoSelection.seed != 99) {
         cfg.videoSelection.seed = options.videoSelection.seed;
+    }
+    if (!options.videoSelection.localVideoDirectory.empty()) {
+        cfg.videoSelection.localVideoDirectory = resolvePath(options.videoSelection.localVideoDirectory);
+        cfg.videoSelection.useLocalDirectory = true;
     }
     if (!options.videoSelection.r2Endpoint.empty()) {
         cfg.videoSelection.r2Endpoint = options.videoSelection.r2Endpoint;
