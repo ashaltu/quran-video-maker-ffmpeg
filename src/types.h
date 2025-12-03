@@ -22,6 +22,7 @@ struct VideoSelectionConfig {
     std::string themeMetadataPath = "metadata/surah-themes.json";
     unsigned int seed = 99;
     bool enableDynamicBackgrounds = false;
+    bool usePublicBucket = true;  // Default to public access
 };
 
 struct AppConfig {
@@ -155,4 +156,7 @@ struct CLIOptions {
     std::string videoBitrateOverride = "";
     std::string videoMaxRateOverride = "";
     std::string videoBufSizeOverride = "";
+
+    // R2 dynamic video selection configuration
+    VideoSelectionConfig videoSelection;
 };

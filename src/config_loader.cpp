@@ -1,6 +1,7 @@
 #include "config_loader.h"
 #include "quran_data.h"
 #include "cache_utils.h"
+#include <cstdlib>
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <fstream>
@@ -22,6 +23,32 @@ namespace fs = std::filesystem;
 using json = nlohmann::json;
 
 namespace {
+
+std::string expandEnvVars(const std::string& value) {
+    if (value.empty() || value.find("${") == std::string::npos) {
+        return value;
+    }
+    
+    std::string result = value;
+    size_t start = 0;
+    
+    while ((start = result.find("${", start)) != std::string::npos) {
+        size_t end = result.find("}", start);
+        if (end == std::string::npos) break;
+        
+        std::string varName = result.substr(start + 2, end - start - 2);
+        const char* varValue = std::getenv(varName.c_str());
+        
+        if (varValue) {
+            result.replace(start, end - start + 1, varValue);
+        } else {
+            // Keep the variable reference if not found
+            start = end + 1;
+        }
+    }
+    
+    return result;
+}
 
 fs::path getExecutablePath() {
 #ifdef _WIN32
@@ -304,7 +331,42 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     cfg.videoBufSize = data.value("videoBufSize", "");
     auto qualityProfiles = loadQualityProfiles(data);
 
-    // CLI overrides
+    // Video selection configuration
+    if (data.contains("videoSelection") && data["videoSelection"].is_object()) {
+        const auto& vs = data["videoSelection"];
+        cfg.videoSelection.enableDynamicBackgrounds = vs.value("enableDynamicBackgrounds", false);
+        cfg.videoSelection.seed = vs.value("seed", 99);
+        cfg.videoSelection.r2Endpoint = expandEnvVars(vs.value("r2Endpoint", ""));
+        cfg.videoSelection.r2AccessKey = expandEnvVars(vs.value("r2AccessKey", ""));
+        cfg.videoSelection.r2SecretKey = expandEnvVars(vs.value("r2SecretKey", ""));
+        cfg.videoSelection.r2Bucket = vs.value("r2Bucket", "quran-background-videos");
+        cfg.videoSelection.themeMetadataPath = resolvePath(vs.value("themeMetadataPath", "metadata/surah-themes.json"));
+        cfg.videoSelection.usePublicBucket = vs.value("usePublicBucket", true);
+    }
+    
+    // CLI overrides for video selection
+    if (options.videoSelection.enableDynamicBackgrounds) {
+        cfg.videoSelection.enableDynamicBackgrounds = true;
+    }
+    if (options.videoSelection.seed != 99) {
+        cfg.videoSelection.seed = options.videoSelection.seed;
+    }
+    if (!options.videoSelection.r2Endpoint.empty()) {
+        cfg.videoSelection.r2Endpoint = options.videoSelection.r2Endpoint;
+    }
+    if (!options.videoSelection.r2AccessKey.empty()) {
+        cfg.videoSelection.r2AccessKey = options.videoSelection.r2AccessKey;
+        cfg.videoSelection.usePublicBucket = false;
+    }
+    if (!options.videoSelection.r2SecretKey.empty()) {
+        cfg.videoSelection.r2SecretKey = options.videoSelection.r2SecretKey;
+        cfg.videoSelection.usePublicBucket = false;
+    }
+    if (!options.videoSelection.r2Bucket.empty()) {
+        cfg.videoSelection.r2Bucket = options.videoSelection.r2Bucket;
+    }
+
+    // CLI overrides for reciter, translation, dimensions, fonts, quality
     if (options.reciterId != -1) cfg.reciterId = options.reciterId;
     if (options.translationId != -1) {
         cfg.translationId = options.translationId;
@@ -367,18 +429,4 @@ void validateAssets(const AppConfig& config) {
     if (!fs::exists(config.quranWordByWordPath)) {
         throw std::runtime_error("Quran word-by-word data not found: " + config.quranWordByWordPath);
     }
-}
-
-std::string expandEnvVars(const std::string& value) {
-    if (value.find("${") == std::string::npos) return value;
-    std::string result = value;
-    size_t start = 0;
-    while ((start = result.find("${", start)) != std::string::npos) {
-        size_t end = result.find("}", start);
-        if (end == std::string::npos) break;
-        std::string varName = result.substr(start + 2, end - start - 2);
-        const char* varValue = std::getenv(varName.c_str());
-        result.replace(start, end - start + 1, varValue ? varValue : "");
-    }
-    return result;
 }

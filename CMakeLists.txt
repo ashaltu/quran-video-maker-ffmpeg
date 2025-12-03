@@ -70,6 +70,21 @@ if(NOT nlohmann_json_FOUND)
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
+# Dependency: AWS SDK for C++
+find_package(AWSSDK COMPONENTS s3)
+if(NOT AWSSDK_FOUND)
+    message(STATUS "AWS SDK not found, fetching from source...")
+    FetchContent_Declare(
+        aws-sdk-cpp
+        GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
+        GIT_TAG        1.11.0
+    )
+    set(BUILD_ONLY "s3" CACHE STRING "" FORCE)
+    set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(AUTORUN_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(aws-sdk-cpp)
+endif()
+
 # Find required system libraries
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
@@ -101,6 +116,7 @@ add_library(qvm_lib STATIC
     src/audio/custom_audio_processor.cpp src/audio/custom_audio_processor.h
     src/text/text_layout.cpp src/text/text_layout.h
     src/types.h
+    src/background_video_manager.cpp src/background_video_manager.h
     src/r2_client.cpp src/r2_client.h
     src/video_selector.cpp src/video_selector.h
 )
@@ -123,8 +139,8 @@ target_link_libraries(qvm_lib PUBLIC
     nlohmann_json::nlohmann_json
     Threads::Threads
     cxxopts::cxxopts
-    OpenSSL::SSL
-    OpenSSL::Crypto
+    aws-cpp-sdk-s3
+    aws-cpp-sdk-core
 )
 
 target_link_libraries(qvm PRIVATE qvm_lib)

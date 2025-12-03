@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <memory>
 
 namespace R2 {
 
@@ -10,6 +11,7 @@ struct R2Config {
     std::string accessKey;
     std::string secretKey;
     std::string bucket;
+    bool usePublicAccess = true;
 };
 
 class Client {

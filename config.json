@@ -77,6 +77,7 @@
   "videoMaxRate": "",
   "videoBufSize": "",
 
+  "_comment_video_selection": "Dynamic background video selection",
   "videoSelection": {
     "enableDynamicBackgrounds": false,
     "seed": 99,
@@ -84,6 +85,7 @@
     "r2AccessKey": "${R2_ACCESS_KEY}",
     "r2SecretKey": "${R2_SECRET_KEY}",
     "r2Bucket": "quran-background-videos",
-    "themeMetadataPath": "metadata/surah-themes.json"
+    "themeMetadataPath": "metadata/surah-themes.json",
+    "usePublicBucket": true
   }
 }
