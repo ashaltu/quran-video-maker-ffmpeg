@@ -1,4 +1,6 @@
 #include "video_generator.h"
+#include "video_selector.h"
+#include "r2_client.h"
 #include "quran_data.h"
 #include "audio/custom_audio_processor.h"
 #include "interfaces/IProcessExecutor.h"
@@ -77,6 +79,57 @@ static std::string to_ffmpeg_filter_path(const fs::path& p) {
 }
 
 void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& config, const std::vector<VerseData>& verses, std::shared_ptr<Interfaces::IProcessExecutor> processExecutor) {
+    std::string backgroundVideoPath = config.assetBgVideo;
+
+    if (config.videoSelection.enableDynamicBackgrounds) {
+        try {
+            VideoSelector::Selector selector(
+                config.videoSelection.themeMetadataPath,
+                config.videoSelection.seed
+            );
+            
+            auto themes = selector.getThemesForVerses(options.surah, options.from, options.to);
+            std::cout << "Available themes: ";
+            for (const auto& t : themes) std::cout << t << " ";
+            std::cout << std::endl;
+            
+            VideoSelector::SelectionState state;
+            std::string verseRange = std::to_string(options.surah) + ":" + 
+                                    std::to_string(options.from) + "-" + 
+                                    std::to_string(options.to);
+            
+            std::string selectedTheme = selector.selectTheme(themes, verseRange, state);
+            std::cout << "Selected theme: " << selectedTheme << std::endl;
+            
+            R2::R2Config r2Config{
+                config.videoSelection.r2Endpoint,
+                config.videoSelection.r2AccessKey,
+                config.videoSelection.r2SecretKey,
+                config.videoSelection.r2Bucket
+            };
+            
+            R2::Client r2Client(r2Config);
+            auto availableVideos = r2Client.listVideosInTheme(selectedTheme);
+            
+            if (availableVideos.empty()) {
+                std::cerr << "Warning: No videos found for theme '" << selectedTheme 
+                        << "', using default background" << std::endl;
+            } else {
+                std::string selectedVideo = selector.selectVideoFromTheme(
+                    selectedTheme, availableVideos, state
+                );
+                std::cout << "Selected video: " << selectedVideo << std::endl;
+                
+                fs::path localPath = fs::temp_directory_path() / "bg_videos" / fs::path(selectedVideo).filename();
+                backgroundVideoPath = r2Client.downloadVideo(selectedVideo, localPath);
+                std::cout << "Downloaded to: " << backgroundVideoPath << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Warning: Dynamic background selection failed: " << e.what() 
+                    << ", using default background" << std::endl;
+        }
+    }
+
     try {
         std::cout << "\n=== Starting Video Rendering ===" << std::endl;
         

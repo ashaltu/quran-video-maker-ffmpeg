@@ -51,6 +51,12 @@ int main(int argc, char* argv[]) {
         ("custom-audio", "Custom audio file path or URL (gapless mode only)", cxxopts::value<std::string>())
         ("custom-timing", "Custom timing file (VTT or SRT format)", cxxopts::value<std::string>())
         ("generate-backend-metadata,gbm", "Generate metadata for backend server and exit")
+        ("seed", "Deterministic value for reproducible results", cxxopts::value<unsigned int>()->default_value("99"))
+        ("r2-endpoint", "R2 endpoint URL", cxxopts::value<std::string>())
+        ("r2-access-key", "R2 access key", cxxopts::value<std::string>())
+        ("r2-secret-key", "R2 secret key", cxxopts::value<std::string>())
+        ("r2-bucket", "R2 bucket name", cxxopts::value<std::string>()->default_value("quran-background-videos"))
+        ("enable-dynamic-bg", "Enable dynamic background video selection", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage");
     
     cli_parser.parse_positional({"surah", "from", "to"});
@@ -120,6 +126,14 @@ int main(int argc, char* argv[]) {
     if (result.count("maxrate")) options.videoMaxRateOverride = result["maxrate"].as<std::string>();
     if (result.count("bufsize")) options.videoBufSizeOverride = result["bufsize"].as<std::string>();
     
+    // Dynamic background video options
+    if (result.count("seed")) options.videoSelection.seed = result["seed"].as<unsigned int>();
+    if (result.count("r2-endpoint")) options.videoSelection.r2Endpoint = result["r2-endpoint"].as<std::string>();
+    if (result.count("r2-access-key")) options.videoSelection.r2AccessKey = result["r2-access-key"].as<std::string>();
+    if (result.count("r2-secret-key")) options.videoSelection.r2SecretKey = result["r2-secret-key"].as<std::string>();
+    if (result.count("r2-bucket")) options.videoSelection.r2Bucket = result["r2-bucket"].as<std::string>();
+    options.videoSelection.enableDynamicBackgrounds = result["enable-dynamic-bg"].as<bool>();
+
     // Custom recitation options
     if (result.count("custom-audio")) options.customAudioPath = result["custom-audio"].as<std::string>();
     if (result.count("custom-timing")) options.customTimingFile = result["custom-timing"].as<std::string>();

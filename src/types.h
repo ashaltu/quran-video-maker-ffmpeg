@@ -14,6 +14,16 @@ struct FontConfig {
     std::string color;
 };
 
+struct VideoSelectionConfig {
+    std::string r2Endpoint;
+    std::string r2AccessKey;
+    std::string r2SecretKey;
+    std::string r2Bucket = "quran-background-videos";
+    std::string themeMetadataPath = "metadata/surah-themes.json";
+    unsigned int seed = 99;
+    bool enableDynamicBackgrounds = false;
+};
+
 struct AppConfig {
     // Video dimensions
     int width;
@@ -76,6 +86,9 @@ struct AppConfig {
     std::string videoBitrate;
     std::string videoMaxRate;
     std::string videoBufSize;
+
+    // R2 dynamic video selection configuration
+    VideoSelectionConfig videoSelection;
 };
 
 // Word segment timing information for gapless mode

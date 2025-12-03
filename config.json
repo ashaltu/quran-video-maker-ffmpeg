@@ -75,5 +75,15 @@
   "pixelFormat": "",
   "videoBitrate": "",
   "videoMaxRate": "",
-  "videoBufSize": ""
+  "videoBufSize": "",
+
+  "videoSelection": {
+    "enableDynamicBackgrounds": false,
+    "seed": 99,
+    "r2Endpoint": "${R2_ENDPOINT}",
+    "r2AccessKey": "${R2_ACCESS_KEY}",
+    "r2SecretKey": "${R2_SECRET_KEY}",
+    "r2Bucket": "quran-background-videos",
+    "themeMetadataPath": "metadata/surah-themes.json"
+  }
 }

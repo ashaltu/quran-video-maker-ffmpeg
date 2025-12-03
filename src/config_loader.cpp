@@ -368,3 +368,17 @@ void validateAssets(const AppConfig& config) {
         throw std::runtime_error("Quran word-by-word data not found: " + config.quranWordByWordPath);
     }
 }
+
+std::string expandEnvVars(const std::string& value) {
+    if (value.find("${") == std::string::npos) return value;
+    std::string result = value;
+    size_t start = 0;
+    while ((start = result.find("${", start)) != std::string::npos) {
+        size_t end = result.find("}", start);
+        if (end == std::string::npos) break;
+        std::string varName = result.substr(start + 2, end - start - 2);
+        const char* varValue = std::getenv(varName.c_str());
+        result.replace(start, end - start + 1, varValue ? varValue : "");
+    }
+    return result;
+}

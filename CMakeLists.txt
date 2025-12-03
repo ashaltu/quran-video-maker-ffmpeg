@@ -101,6 +101,8 @@ add_library(qvm_lib STATIC
     src/audio/custom_audio_processor.cpp src/audio/custom_audio_processor.h
     src/text/text_layout.cpp src/text/text_layout.h
     src/types.h
+    src/r2_client.cpp src/r2_client.h
+    src/video_selector.cpp src/video_selector.h
 )
 
 add_executable(qvm src/main.cpp)
@@ -121,6 +123,8 @@ target_link_libraries(qvm_lib PUBLIC
     nlohmann_json::nlohmann_json
     Threads::Threads
     cxxopts::cxxopts
+    OpenSSL::SSL
+    OpenSSL::Crypto
 )
 
 target_link_libraries(qvm PRIVATE qvm_lib)
