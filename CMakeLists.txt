@@ -5,7 +5,6 @@ set(CPACK_PACKAGE_VERSION "0.0.0-dev" CACHE STRING "Package version")
 set(CPACK_PACKAGE_VENDOR "ashaltu")
 set(CPACK_GENERATOR "ZIP")
 if(WIN32)
-    # Keep Windows artifacts named with a -win64 suffix for Scoop and release automation.
     set(CPACK_SYSTEM_NAME "win64")
 elseif(APPLE)
     set(CPACK_SYSTEM_NAME "macos")
@@ -36,9 +35,6 @@ endif()
 # Dependency: cpr
 find_package(cpr CONFIG)
 if(WIN32)
-    # Always build CPR/cURL ourselves on Windows so we can force the Schannel
-    # backend and rely on the native certificate store instead of a missing
-    # OpenSSL CA bundle in Scoop installs.
     set(cpr_FOUND FALSE)
 endif()
 if(NOT cpr_FOUND)
@@ -71,70 +67,78 @@ if(NOT nlohmann_json_FOUND)
 endif()
 
 # Dependency: AWS SDK for C++
-# Dependency: AWS SDK for C++
-find_package(AWSSDK COMPONENTS s3)
-if(NOT AWSSDK_FOUND)
-    message(STATUS "AWS SDK not found, fetching from source...")
+# Try multiple methods to find AWS SDK
+set(AWS_SDK_FOUND FALSE)
+
+# Method 1: Standard find_package
+find_package(AWSSDK CONFIG COMPONENTS s3 QUIET)
+if(AWSSDK_FOUND)
+    message(STATUS "Found AWS SDK via find_package")
+    set(AWS_SDK_LIBS ${AWSSDK_LINK_LIBRARIES})
+    set(AWS_SDK_FOUND TRUE)
+endif()
+
+# Method 2: Try individual components (some package managers split them)
+if(NOT AWS_SDK_FOUND)
+    find_package(aws-cpp-sdk-core CONFIG QUIET)
+    find_package(aws-cpp-sdk-s3 CONFIG QUIET)
     
-    # Use a more recent version that has better CMake support
-    set(AWS_SDK_CPP_VERSION "1.11.440")
-    
-    # Set build options before fetching
-    set(BUILD_ONLY "s3" CACHE STRING "" FORCE)
-    set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-    set(AUTORUN_UNIT_TESTS OFF CACHE BOOL "" FORCE)
-    set(MINIMIZE_SIZE ON CACHE BOOL "" FORCE)
-    set(ENABLE_UNITY_BUILD ON CACHE BOOL "" FORCE)
-    
-    # Disable features we don't need
-    set(ENABLE_VIRTUAL_OPERATIONS OFF CACHE BOOL "" FORCE)
-    
-    # Use system dependencies where possible
-    set(BUILD_DEPS OFF CACHE BOOL "" FORCE)
-    set(FORCE_SHARED_CRT ON CACHE BOOL "" FORCE)
-    
-    # For curl on Linux
-    if(UNIX AND NOT APPLE)
-        set(FORCE_CURL ON CACHE BOOL "" FORCE)
+    if(TARGET aws-cpp-sdk-s3 AND TARGET aws-cpp-sdk-core)
+        message(STATUS "Found AWS SDK components individually")
+        set(AWS_SDK_LIBS aws-cpp-sdk-s3 aws-cpp-sdk-core)
+        set(AWS_SDK_FOUND TRUE)
     endif()
+endif()
+
+# Method 3: Try pkg-config (some systems use this)
+if(NOT AWS_SDK_FOUND AND PKG_CONFIG_FOUND)
+    pkg_check_modules(AWS_CORE QUIET aws-cpp-sdk-core)
+    pkg_check_modules(AWS_S3 QUIET aws-cpp-sdk-s3)
     
-    # AWS SDK has issues with newer CMake policies
-    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-        set(CMAKE_POLICY_DEFAULT_CMP0135 NEW)
-        set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+    if(AWS_CORE_FOUND AND AWS_S3_FOUND)
+        message(STATUS "Found AWS SDK via pkg-config")
+        set(AWS_SDK_LIBS ${AWS_S3_LIBRARIES} ${AWS_CORE_LIBRARIES})
+        set(AWS_SDK_INCLUDE_DIRS ${AWS_S3_INCLUDE_DIRS} ${AWS_CORE_INCLUDE_DIRS})
+        set(AWS_SDK_FOUND TRUE)
     endif()
+endif()
+
+# Method 4: Manual search in common locations
+if(NOT AWS_SDK_FOUND)
+    find_library(AWS_CORE_LIB NAMES aws-cpp-sdk-core 
+        PATHS /usr/local/lib /opt/homebrew/lib /usr/lib)
+    find_library(AWS_S3_LIB NAMES aws-cpp-sdk-s3 
+        PATHS /usr/local/lib /opt/homebrew/lib /usr/lib)
+    find_path(AWS_INCLUDE_DIR aws/core/Aws.h
+        PATHS /usr/local/include /opt/homebrew/include /usr/include)
     
-    # For Windows, use a shorter path to avoid path length issues
-    if(WIN32)
-        set(FETCHCONTENT_BASE_DIR "C:/tmp/fc" CACHE PATH "" FORCE)
+    if(AWS_CORE_LIB AND AWS_S3_LIB AND AWS_INCLUDE_DIR)
+        message(STATUS "Found AWS SDK via manual search")
+        set(AWS_SDK_LIBS ${AWS_S3_LIB} ${AWS_CORE_LIB})
+        set(AWS_SDK_INCLUDE_DIRS ${AWS_INCLUDE_DIR})
+        set(AWS_SDK_FOUND TRUE)
     endif()
-    
-    FetchContent_Declare(
-        aws-sdk-cpp
-        URL https://github.com/aws/aws-sdk-cpp/archive/refs/tags/${AWS_SDK_CPP_VERSION}.tar.gz
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    )
-    
-    # Set CMake minimum version policy for the subdirectory
-    set(CMAKE_POLICY_DEFAULT_CMP0048 NEW)
-    
-    FetchContent_MakeAvailable(aws-sdk-cpp)
-    
-    # After fetch, we need to help find the targets
-    if(TARGET aws-cpp-sdk-s3)
-        add_library(AWS::aws-cpp-sdk-s3 ALIAS aws-cpp-sdk-s3)
-    endif()
-    if(TARGET aws-cpp-sdk-core)
-        add_library(AWS::aws-cpp-sdk-core ALIAS aws-cpp-sdk-core)
-    endif()
+endif()
+
+if(NOT AWS_SDK_FOUND)
+    message(FATAL_ERROR 
+        "AWS SDK not found. Please install it via:\n"
+        "  - Ubuntu/Debian: sudo apt install libaws-sdk-cpp-dev\n"
+        "  - macOS: brew install aws-sdk-cpp\n"
+        "  - MSYS2: pacman -S mingw-w64-ucrt-x86_64-aws-sdk-cpp\n"
+        "  - Or build from source with: cmake -DBUILD_ONLY=s3")
+endif()
+
+# Add include directories if we found them via pkg-config or manual search
+if(DEFINED AWS_SDK_INCLUDE_DIRS)
+    target_include_directories(qvm_lib PUBLIC ${AWS_SDK_INCLUDE_DIRS})
 endif()
 
 # Find required system libraries
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
-# Find FFmpeg libraries using PkgConfig. Request IMPORTED_TARGET so link and
-# include directories are propagated correctly on all platforms (e.g. macOS).
+# Find FFmpeg libraries using PkgConfig
 pkg_check_modules(AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
 pkg_check_modules(AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
 pkg_check_modules(AVFILTER REQUIRED IMPORTED_TARGET libavfilter)
@@ -172,39 +176,20 @@ target_include_directories(qvm_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-if(AWSSDK_FOUND)
-    target_link_libraries(qvm_lib PUBLIC
-        PkgConfig::AVFORMAT
-        PkgConfig::AVCODEC
-        PkgConfig::AVFILTER
-        PkgConfig::AVUTIL
-        PkgConfig::SWSCALE
-        PkgConfig::FREETYPE
-        PkgConfig::HARFBUZZ
-        cpr::cpr
-        nlohmann_json::nlohmann_json
-        Threads::Threads
-        cxxopts::cxxopts
-        ${AWSSDK_LINK_LIBRARIES}
-    )
-else()
-    # When using FetchContent
-    target_link_libraries(qvm_lib PUBLIC
-        PkgConfig::AVFORMAT
-        PkgConfig::AVCODEC
-        PkgConfig::AVFILTER
-        PkgConfig::AVUTIL
-        PkgConfig::SWSCALE
-        PkgConfig::FREETYPE
-        PkgConfig::HARFBUZZ
-        cpr::cpr
-        nlohmann_json::nlohmann_json
-        Threads::Threads
-        cxxopts::cxxopts
-        aws-cpp-sdk-s3
-        aws-cpp-sdk-core
-    )
-endif()
+target_link_libraries(qvm_lib PUBLIC
+    PkgConfig::AVFORMAT
+    PkgConfig::AVCODEC
+    PkgConfig::AVFILTER
+    PkgConfig::AVUTIL
+    PkgConfig::SWSCALE
+    PkgConfig::FREETYPE
+    PkgConfig::HARFBUZZ
+    cpr::cpr
+    nlohmann_json::nlohmann_json
+    Threads::Threads
+    cxxopts::cxxopts
+    ${AWS_SDK_LIBS}
+)
 
 target_link_libraries(qvm PRIVATE qvm_lib)
 
@@ -250,7 +235,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 endif()
 
 if(WIN32)
-    # Optional: include a CA bundle alongside the binary for OpenSSL-based curls
     if(EXISTS "${CMAKE_BINARY_DIR}/ca-bundle.crt")
         install(FILES "${CMAKE_BINARY_DIR}/ca-bundle.crt"
             DESTINATION etc/ssl/certs

@@ -35,14 +35,30 @@ jobs:
     - name: Download data.tar
       run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
-    - name: Install build deps
+    - name: Install build deps and AWS SDK
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           libavformat-dev libavcodec-dev libavfilter-dev \
           libavutil-dev libswscale-dev \
-          libfreetype6-dev libharfbuzz-dev
-        sudo apt-get install -y ffmpeg
+          libfreetype6-dev libharfbuzz-dev \
+          libcurl4-openssl-dev libssl-dev zlib1g-dev \
+          ffmpeg
+        
+        # Install AWS SDK from apt (Ubuntu 22.04 has it)
+        sudo apt-get install -y libaws-sdk-cpp-dev || {
+          # If not available, build minimal AWS SDK
+          echo "Building AWS SDK from source (minimal S3 only)..."
+          cd /tmp
+          git clone --depth 1 -b 1.11.440 https://github.com/aws/aws-sdk-cpp.git
+          cd aws-sdk-cpp
+          mkdir build && cd build
+          cmake .. -DBUILD_ONLY=s3 -DENABLE_TESTING=OFF -DCMAKE_BUILD_TYPE=Release \
+                   -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_DEPS=OFF
+          make -j$(nproc)
+          sudo make install
+          sudo ldconfig
+        }
 
     - name: Configure CMake
       run: |
@@ -92,15 +108,28 @@ jobs:
     - name: Download data.tar
       run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
-    - name: Install FFmpeg dependencies
+    - name: Install dependencies via Homebrew
       run: |
         brew update
-        brew install ffmpeg freetype harfbuzz
+        brew install ffmpeg freetype harfbuzz pkg-config
+        # Try to install aws-sdk-cpp from homebrew
+        brew install aws-sdk-cpp || {
+          # If not available or wrong version, build minimal version
+          echo "Building AWS SDK from source (minimal S3 only)..."
+          cd /tmp
+          git clone --depth 1 -b 1.11.440 https://github.com/aws/aws-sdk-cpp.git
+          cd aws-sdk-cpp
+          mkdir build && cd build
+          cmake .. -DBUILD_ONLY=s3 -DENABLE_TESTING=OFF -DCMAKE_BUILD_TYPE=Release \
+                   -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_DEPS=OFF
+          make -j$(sysctl -n hw.logicalcpu)
+          sudo make install
+        }
 
-    - name: Export FFmpeg pkgconfig paths (macOS)
+    - name: Export paths
       run: |
-        export PKG_CONFIG_PATH="/opt/homebrew/opt/ffmpeg/lib/pkgconfig:/usr/local/opt/ffmpeg/lib/pkgconfig:$PKG_CONFIG_PATH"
-        echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=/opt/homebrew/opt/ffmpeg/lib/pkgconfig:/usr/local/opt/ffmpeg/lib/pkgconfig:/usr/local/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
+        echo "CMAKE_PREFIX_PATH=/usr/local:/opt/homebrew:$CMAKE_PREFIX_PATH" >> $GITHUB_ENV
 
     - name: Configure CMake
       run: |
@@ -145,6 +174,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    - name: Enable long paths
+      run: |
+        git config --system core.longpaths true
+
     - uses: actions/checkout@v4
 
     - name: Set up MSYS2
@@ -164,6 +197,7 @@ jobs:
           ucrt64/mingw-w64-ucrt-x86_64-ffmpeg
           ucrt64/mingw-w64-ucrt-x86_64-freetype
           ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
+          ucrt64/mingw-w64-ucrt-x86_64-aws-sdk-cpp
 
     - name: Prepare data.tar
       shell: msys2 {0}
@@ -175,7 +209,9 @@ jobs:
       shell: msys2 {0}
       run: |
         export PKG_CONFIG_PATH="/ucrt64/lib/pkgconfig:/ucrt64/share/pkgconfig:$PKG_CONFIG_PATH"
-        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -S $GITHUB_WORKSPACE
+        cmake -B build -G "Ninja" \
+          -DCMAKE_BUILD_TYPE=Release \
+          -S $GITHUB_WORKSPACE
 
     - name: Build
       shell: msys2 {0}
@@ -184,8 +220,8 @@ jobs:
     - name: Test (unit tests and smoke test)
       shell: msys2 {0}
       run: |
-        cd ${BUILD_DIR}
-        ctest --build-config ${BUILD_TYPE} --rerun-failed --output-on-failure
+        cd build
+        ctest --build-config Release --rerun-failed --output-on-failure
         cd ..
         mkdir -p out
         ./build/qvm.exe 1 1 7 --translation 1 --preset ultrafast --arabic-font-size=60 --translation-font-size=75 --output out/en-ci-smoke.mp4
@@ -206,4 +242,3 @@ jobs:
           out/urd-ci-smoke.mp4
           out/en-thumbnail.jpeg
           out/urd-thumbnail.jpeg
-          
