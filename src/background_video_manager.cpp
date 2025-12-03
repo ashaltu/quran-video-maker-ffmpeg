@@ -216,13 +216,13 @@ std::string Manager::stitchVideos(const std::vector<VideoSegment>& segments) {
         throw std::runtime_error("No video segments to stitch");
     }
     
-    // If only one segment, return it directly
+    // If only one segment, still normalize it for consistent color space
     if (segments.size() == 1) {
-        std::cout << "  Single segment, using directly" << std::endl;
-        return segments[0].path;
+        std::cout << "  Single segment, normalizing for consistency..." << std::endl;
+    } else {
+        std::cout << "  Stitching " << segments.size() << " video segments..." << std::endl;
     }
     
-    std::cout << "  Stitching " << segments.size() << " video segments..." << std::endl;
     std::cout << "  Re-encoding segments to ensure compatibility..." << std::endl;
     
     // First pass: re-encode all segments to ensure they have compatible parameters
@@ -233,12 +233,19 @@ std::string Manager::stitchVideos(const std::vector<VideoSegment>& segments) {
         
         std::ostringstream cmd;
         cmd << "ffmpeg -y -i \"" << segments[i].path << "\" ";
+        // Add silent audio source - will be limited to video duration by -shortest
+        cmd << "-f lavfi -i anullsrc=r=48000:cl=stereo ";
         cmd << "-c:v libx264 -preset ultrafast -crf 23 ";
         cmd << "-r " << config_.fps << " ";  // Force consistent frame rate
         cmd << "-s " << config_.width << "x" << config_.height << " ";  // Force consistent resolution
         cmd << "-pix_fmt yuv420p ";
-        cmd << "-c:a aac -ar 48000 -ac 2 -b:a 128k ";  // Normalize audio
-        cmd << "-vsync cfr ";  // Force constant frame rate
+        // Force consistent color metadata to prevent filter graph reconfiguration
+        cmd << "-colorspace bt709 -color_primaries bt709 -color_trc bt709 ";
+        // Map video from source (input 0), audio from silent source (input 1)
+        // This ensures all segments have audio and discards any original audio
+        cmd << "-map 0:v:0 -map 1:a:0 -shortest ";
+        cmd << "-c:a aac -ar 48000 -ac 2 -b:a 128k ";
+        cmd << "-fps_mode cfr ";  // Use fps_mode instead of deprecated vsync
         cmd << "-video_track_timescale 90000 ";  // Consistent timescale
         cmd << "-movflags +faststart ";
         cmd << "\"" << normalizedPath.string() << "\" 2>&1";
@@ -258,6 +265,13 @@ std::string Manager::stitchVideos(const std::vector<VideoSegment>& segments) {
     
     std::cout << "  Successfully normalized " << normalizedSegments.size() << " segments" << std::endl;
     
+    // If only one segment after normalization, return it directly
+    if (normalizedSegments.size() == 1) {
+        double duration = getVideoDuration(normalizedSegments[0]);
+        std::cout << "  Single normalized segment ready, duration: " << duration << " seconds" << std::endl;
+        return normalizedSegments[0];
+    }
+    
     // Create concat demuxer file
     fs::path concatFile = tempDir_ / "concat.txt";
     std::ofstream concat(concatFile);
@@ -274,10 +288,11 @@ std::string Manager::stitchVideos(const std::vector<VideoSegment>& segments) {
     fs::path outputPath = tempDir_ / "background_stitched.mp4";
     tempFiles_.push_back(outputPath);
     
-    // Build ffmpeg command - now we can safely use copy since everything is normalized
+    // Build ffmpeg command - use copy since everything is normalized identically
+    // Add fflags +genpts to regenerate timestamps and avoid DTS issues
     std::ostringstream cmd;
-    cmd << "ffmpeg -y -f concat -safe 0 -i \"" << concatFile.string() << "\" ";
-    cmd << "-c copy ";  // Copy codecs (safe now since everything is normalized)
+    cmd << "ffmpeg -y -fflags +genpts -f concat -safe 0 -i \"" << concatFile.string() << "\" ";
+    cmd << "-c copy ";
     cmd << "-movflags +faststart ";
     cmd << "\"" << outputPath.string() << "\" 2>&1";
     
@@ -323,8 +338,8 @@ std::string Manager::prepareBackgroundVideo(double totalDurationSeconds) {
         // Check if we need to note about looping
         double finalDuration = getVideoDuration(finalVideo);
         if (finalDuration > 0 && finalDuration < totalDurationSeconds) {
-            std::cout << "  Note: Stitched background duration (" << finalDuration 
-                     << "s) is shorter than total duration (" << totalDurationSeconds 
+            std::cout << "  Note: Background duration (" << finalDuration 
+                     << "s) < total duration (" << totalDurationSeconds 
                      << "s), will loop automatically" << std::endl;
         }
         
