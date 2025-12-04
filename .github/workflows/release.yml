@@ -38,16 +38,43 @@ jobs:
     - name: Download data.tar
       run: curl -L https://qvm-r2-storage.tawbah.app/data.tar -o data.tar
 
-    - name: Extract data.tar
-      run: tar -xf data.tar
-
     - name: Install build deps
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           libavformat-dev libavcodec-dev libavfilter-dev \
           libavutil-dev libswscale-dev \
-          libfreetype6-dev libharfbuzz-dev
+          libfreetype6-dev libharfbuzz-dev \
+          libcurl4-openssl-dev libssl-dev zlib1g-dev
+        sudo apt-get install -y ffmpeg
+
+    - name: Cache vcpkg
+      id: cache-vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/vcpkg
+          ~/.cache/vcpkg
+        key: vcpkg-linux-x64-aws-sdk-v2
+
+    - name: Setup vcpkg
+      if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
+        ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+
+    - name: Install AWS SDK via vcpkg
+      if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+      run: |
+        ~/vcpkg/vcpkg install aws-sdk-cpp[s3]:x64-linux
+
+    - name: Set vcpkg environment
+      run: |
+        echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
+        echo "CMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake" >> $GITHUB_ENV
+
+    - name: Extract data.tar
+      run: tar -xf data.tar
 
     - name: Configure CMake
       run: |
@@ -56,6 +83,7 @@ jobs:
         cmake -B $BUILD_DIR \
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
           -DCPACK_PACKAGE_VERSION="$VER_NO_V" \
+          -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake \
           -DFETCHCONTENT_QUIET=OFF \
           -S ${{ github.workspace }}
 
@@ -86,15 +114,14 @@ jobs:
     - name: Extract data.tar
       run: tar -xf data.tar
 
-    - name: Install FFmpeg dependencies
+    - name: Install dependencies via Homebrew
       run: |
         brew update
-        brew install ffmpeg freetype harfbuzz
+        brew install ffmpeg freetype harfbuzz pkg-config aws-sdk-cpp
 
-    - name: Export FFmpeg pkgconfig paths (macOS)
+    - name: Export pkgconfig paths (macOS)
       run: |
-        export PKG_CONFIG_PATH="/opt/homebrew/opt/ffmpeg/lib/pkgconfig:/usr/local/opt/ffmpeg/lib/pkgconfig:$PKG_CONFIG_PATH"
-        echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH" >> $GITHUB_ENV
+        echo "PKG_CONFIG_PATH=/opt/homebrew/opt/ffmpeg/lib/pkgconfig:/opt/homebrew/lib/pkgconfig:/usr/local/opt/ffmpeg/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH" >> $GITHUB_ENV
 
     - name: Configure CMake
       run: |
@@ -103,6 +130,7 @@ jobs:
         cmake -B $BUILD_DIR \
           -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
           -DCPACK_PACKAGE_VERSION="$VER_NO_V" \
+          -DCMAKE_PREFIX_PATH="$(brew --prefix)" \
           -DFETCHCONTENT_QUIET=OFF \
           -S ${{ github.workspace }}
 
@@ -125,6 +153,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
+    - name: Enable long paths
+      run: |
+        git config --system core.longpaths true
+
     - uses: actions/checkout@v4
 
     - name: Set up MSYS2
@@ -144,6 +176,7 @@ jobs:
           ucrt64/mingw-w64-ucrt-x86_64-ffmpeg
           ucrt64/mingw-w64-ucrt-x86_64-freetype
           ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
+          ucrt64/mingw-w64-ucrt-x86_64-aws-sdk-cpp
 
     - name: Download data.tar
       shell: msys2 {0}

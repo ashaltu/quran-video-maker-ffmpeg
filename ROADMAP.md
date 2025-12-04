@@ -122,15 +122,35 @@ Automatically creates thumbnails with video metadata.
 
 Each render now produces a `<output>.metadata.json` sidecar that records the exact CLI invocation, absolute asset/config paths, and a copy of the config file used for the run.
 
+### Dynamic Background Videos
+**Status:** 🟢 Stable
+
+Theme-based background video selection with automatic transitions during rendering.
+
+**Working:**
+- R2 cloud storage integration (public and private buckets)
+- Local video directory support
+- Theme metadata configuration (`metadata/surah-themes.json`)
+- Deterministic video selection with configurable seed
+- Automatic video concatenation without pre-stitching
+- Video standardization utility for preparing collections
+- Cache system for downloaded R2 videos
+- Interleaved playlist generation from multiple themes
+- Automatic theme transitions at verse boundaries
+
+**TODOs:**
+- Add support for video crossfade transitions between themes
+- Update metadata writer with theme configuration
+
 ### Progress Reporting
 **Status:** 🟢 Stable
 
 Structured `PROGRESS {...}` lines can be enabled via `--progress`, making it easy for queue workers (Express, Celery, etc.) to stream status/ETA updates without scraping free-form logs.
 
 ### Hardware Acceleration
-**Status:** 🟡 Platform-Dependent (most likely to be deprecated)
+**Status:** 🟡 Platform-Dependent (likely to be deprecated)
 
-Supports both software and hardware encoders for faster rendering. This feature might be deprecated because there are a lot of complex filters applied during rendering and current benchmarks (at least on a M1 MacBook Pro) show there is no improvement and actually worse performance.
+Supports both software and hardware encoders for faster rendering. This feature might be deprecated because the complex filter chains (especially with dynamic backgrounds) show no performance improvement and sometimes worse performance on M1 MacBook Pro benchmarks.
 
 **Working:**
 - macOS: VideoToolbox (h264_videotoolbox)
@@ -159,11 +179,6 @@ Downloads and caches audio files for reuse across multiple renders.
 
 - Verses:
   - Add single verse previews (should create an image)
-- Intelligient Backgrounds(not started):
-  - Implement theme selection based on surah content/topic
-  - Integrate with [Quranic topics data](https://qul.tarteel.ai/resources/ayah-topics)
-  - Support user-uploadable custom backgrounds
-  - Add animated backgrounds support
 - Simple Video Effects(not started):
   - Add particle effects
   - Implement light rays and glows

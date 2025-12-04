@@ -18,6 +18,8 @@
 - Localized surah titles, reciter names, and numerals in the translation language for intros and thumbnails
 - Dynamic animations including text growth and fade effects
 - Customizable backgrounds and visual themes
+- Theme-based dynamic background video selection with automatic transitions
+- Support for custom recitations with precise verse timing
 
 The tool supports both gapped (ayah-by-ayah) and gapless (continuous) workflows. Custom recitations can be supplied via `--custom-audio` and `--custom-timing`.
 
@@ -29,6 +31,11 @@ The tool supports both gapped (ayah-by-ayah) and gapless (continuous) workflows.
 brew install ashaltu/tap/qvm
 
 qvm 1 1 7 # Generates video for the entire Surah Fatiha
+```
+
+To upgrade to latest version:
+```bash
+brew upgrade ashaltu/tap/qvm
 ```
 
 ### With Scoop (Windows)
@@ -78,7 +85,7 @@ Releases do not bundle data; always download `data.tar` from the R2 link above (
 
 **macOS (tested locally + GitHub Actions macos-15-arm64, 15.7.1 / 24G231):**
 ```bash
-brew install cmake pkg-config ffmpeg freetype harfbuzz
+brew install cmake pkg-config ffmpeg freetype harfbuzz aws-sdk-cpp
 ```
 
 **Ubuntu/Debian (tested locally + GitHub Actions ubuntu-24.04):**
@@ -88,7 +95,7 @@ sudo apt-get install -y \
   build-essential cmake pkg-config \
   libavformat-dev libavcodec-dev libavfilter-dev \
   libavutil-dev libswscale-dev libswresample-dev \
-  libfreetype6-dev libharfbuzz-dev
+  libfreetype6-dev libharfbuzz-dev libcurl4-openssl-dev
 ```
 
 **Windows (tested on GitHub Actions windows-2025 runner):**
@@ -105,7 +112,8 @@ sudo apt-get install -y \
     mingw-w64-ucrt-x86_64-curl \
     mingw-w64-ucrt-x86_64-cpr \
     mingw-w64-ucrt-x86_64-nlohmann-json \
-    mingw-w64-ucrt-x86_64-cxxopts
+    mingw-w64-ucrt-x86_64-cxxopts \
+    mingw-w64-ucrt-x86_64-aws-sdk-cpp
   ```
   Then build with CMake/Ninja under MSYS2, download `data.tar` to the repo root, `tar -xf data.tar`, and run `./build/qvm.exe ...`.
 
@@ -185,6 +193,16 @@ You can override any individual quality parameter via CLI (`--quality-profile`, 
 | `--video-bitrate` | Target video bitrate (e.g. `6000k`) | From profile/config |
 | `--maxrate` | Maximum encoder bitrate (e.g. `8000k`) | From profile/config |
 | `--bufsize` | Encoder buffer size (e.g. `12000k`) | From profile/config |
+| `--enable-dynamic-bg` | Enable dynamic background video selection | false |
+| `--seed` | Deterministic seed for reproducible video selection | 99 |
+| `--local-video-dir` | Use local video directory instead of R2 | - |
+| `--r2-endpoint` | R2 endpoint URL | From config |
+| `--r2-access-key` | R2 access key for private buckets | From config |
+| `--r2-secret-key` | R2 secret key for private buckets | From config |
+| `--r2-bucket` | R2 bucket name | `quran-background-videos` |
+| `--standardize-local` | Standardize videos in local directory | - |
+| `--standardize-r2` | Standardize videos in R2 bucket | - |
+| `--generate-backend-metadata` | Generate metadata JSON for backend | - |
 | `--no-cache` | Disable caching | false |
 | `--clear-cache` | Clear all cached data | false |
 | `--no-growth` | Disable text growth animations | false |
@@ -198,6 +216,118 @@ You can override any individual quality parameter via CLI (`--quality-profile`, 
 #### Quality Profiles
 
 `config.json` now exposes a `qualityProfiles` object where you can describe presets for `speed`, `balanced`, `max`, or any custom label you invent. Each entry can override `preset`, `crf`, `pixelFormat`, and the optional bitrate knobs. The CLI flag `--quality-profile` simply picks one of those blocks (default: `balanced`) and still allows overriding individual values via `--preset`, `--crf`, `--pix-fmt`, `--video-bitrate`, `--maxrate`, and `--bufsize`.
+
+
+### Dynamic Background Videos
+The tool supports dynamic background video selection based on verse themes. Videos are automatically selected and concatenated during rendering without pre-stitching.
+```bash
+# Enable dynamic backgrounds (uses public R2 bucket by default)
+qvm 19 1 40 --enable-dynamic-bg
+
+# Use local video directory
+qvm 19 1 40 --enable-dynamic-bg --local-video-dir /path/to/videos
+
+# Use private R2 bucket (requires credentials)
+qvm 19 1 40 --enable-dynamic-bg --r2-access-key "..." --r2-secret-key "..."
+
+# Deterministic video selection with seed
+qvm 19 1 40 --enable-dynamic-bg --seed 42
+```
+
+#### Configuration
+Dynamic backgrounds can be configured via `config.json` or environment variables. Create a `.env` file or set environment variables:
+```bash
+R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+R2_ACCESS_KEY=your-access-key
+R2_SECRET_KEY=your-secret-key
+R2_BUCKET=quran-background-videos
+```
+
+In `config.json`:
+```json
+{
+  "videoSelection": {
+    "enableDynamicBackgrounds": false,
+    "seed": 99,
+    "useLocalDirectory": false,
+    "localVideoDirectory": "/path/to/local/videos",
+    "r2Endpoint": "${R2_ENDPOINT}",
+    "r2AccessKey": "${R2_ACCESS_KEY}",
+    "r2SecretKey": "${R2_SECRET_KEY}",
+    "r2Bucket": "quran-background-videos",
+    "themeMetadataPath": "metadata/surah-themes.json",
+    "usePublicBucket": true
+  }
+}
+```
+
+**Note:** The `usePublicBucket` option allows anonymous access to public R2 buckets without credentials.
+
+#### Expected Tree Structure of Video Folders(pre-standardization)
+You will see each theme has it's own folder. The **naming of videos inside the the themed folders is irrelevant**, as long as the video extensions are one of the following: `mp4`, `mov`, `.avi`, `mkv`, or `webm`. The **naming of the folder IS relevant** as they following mappings in the default `metadata/surah-themes.json` provided. That being said, you **can** come up with your own `surah-themes.json` file which would let you define your own naming of themes as well as your own custom definition of grouped-verse ranges.
+```bash
+quran-background-videos
+├── birth
+│   └── birth_001.mov
+├── dua
+│   └── dua_001.mov
+├── judgement
+│   └── judgement_001.mp4
+├── maryam
+│   ├── maryam_001.mp4
+│   └── maryam_002.mov
+├── mihrab
+│   └── mihrab_001.mp4
+├── miracle
+│   └── miracle_001.mp4
+├── newlife
+│   └── newlife_001.mp4
+├── prayer
+│   └── prayer_001.mp4
+└── prophet
+    ├── prophet_001.mp4
+    └── prophet_002.mp4
+```
+
+#### Theme Metadata Configuration
+Edit `metadata/surah-themes.json` to configure which themes apply to specific verse ranges:
+```json
+{
+  "19": {
+    "1-15": ["dua", "newlife", "mihrab"],
+    "16-33": ["maryam", "birth", "miracle"],
+    "34-40": ["truth", "debate", "prophethood"]
+  }
+}
+```
+
+The renderer uses this mapping to:
+- Select appropriate themed videos for each verse range
+- Build interleaved playlists from multiple themes
+- Transition between themes at verse boundaries
+- Cycle through videos deterministically based on the seed
+
+#### Video Standardization
+Before using dynamic backgrounds, videos should be standardized to ensure compatibility:
+
+```bash
+# Standardize local directory
+qvm --standardize-local /path/to/videos
+
+# Standardize R2 bucket (requires R2 credentials with read/write permissions)
+# Set credentials via environment variables or .env file
+export R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+export R2_ACCESS_KEY=your-access-key
+export R2_SECRET_KEY=your-secret-key
+qvm --standardize-r2 your-bucket-name
+```
+
+**Standardization**:
+- Converts all videos to 1280x720 @ 30fps
+- Uses H.264 codec with consistent settings
+- Removes audio tracks
+- Generates metadata file
+- Alters naming of files
 
 ### Render Metadata Sidecar
 

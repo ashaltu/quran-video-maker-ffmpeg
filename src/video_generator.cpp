@@ -1,4 +1,5 @@
 #include "video_generator.h"
+#include "background_video_manager.h"
 #include "quran_data.h"
 #include "audio/custom_audio_processor.h"
 #include "interfaces/IProcessExecutor.h"
@@ -83,13 +84,7 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
         double intro_duration = config.introDuration;
         double pause_after_intro_duration = config.pauseAfterIntroDuration;
         
-        std::cout << "Generating subtitles..." << std::endl;
-        if (options.emitProgress) emitStageMessage("subtitles", "running", "Generating subtitles");
-        std::string ass_filename = SubtitleBuilder::buildAssFile(config, options, verses, intro_duration, pause_after_intro_duration);
-        std::string ass_ffmpeg_path = to_ffmpeg_filter_path(fs::path(ass_filename));
-        std::string fonts_ffmpeg_path = to_ffmpeg_filter_path(fs::absolute(config.assetFolderPath) / "fonts");
-        if (options.emitProgress) emitStageMessage("subtitles", "completed", "Subtitles generated");
-
+        // Calculate total duration
         double verses_duration = 0.0;
         double minTimestampSec = std::numeric_limits<double>::infinity();
         double maxTimestampSec = 0.0;
@@ -102,10 +97,30 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
             minTimestampSec = 0.0;
         }
         double total_duration = intro_duration + pause_after_intro_duration + verses_duration;
-
-        std::stringstream filter_spec;
-        filter_spec << "[0:v]setpts=PTS-STARTPTS,scale=" << config.width << ":" << config.height;
         
+        // Get background video segments without pre-stitching
+        BackgroundVideo::Manager bgManager(config, options);
+        std::vector<std::string> bgInputFiles;
+        std::string bgFilterComplex;
+        
+        if (config.videoSelection.enableDynamicBackgrounds) {
+            if (options.emitProgress) {
+                emitStageMessage("background", "running", "Selecting background videos");
+            }
+            bgFilterComplex = bgManager.buildFilterComplex(total_duration, bgInputFiles);
+            if (options.emitProgress) {
+                emitStageMessage("background", "completed", 
+                            "Selected " + std::to_string(bgInputFiles.size()) + " background videos");
+            }
+        }
+
+        std::cout << "Generating subtitles..." << std::endl;
+        if (options.emitProgress) emitStageMessage("subtitles", "running", "Generating subtitles");
+        std::string ass_filename = SubtitleBuilder::buildAssFile(config, options, verses, intro_duration, pause_after_intro_duration);
+        std::string ass_ffmpeg_path = to_ffmpeg_filter_path(fs::path(ass_filename));
+        std::string fonts_ffmpeg_path = to_ffmpeg_filter_path(fs::absolute(config.assetFolderPath) / "fonts");
+        if (options.emitProgress) emitStageMessage("subtitles", "completed", "Subtitles generated");
+
         size_t at_pos = config.overlayColor.find('@');
         bool apply_overlay = true;
         if (at_pos != std::string::npos) {
@@ -114,12 +129,6 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
                 if (alpha <= 0.0) apply_overlay = false;
             } catch(...) {}
         }
-        
-        if (apply_overlay) {
-            filter_spec << ",drawbox=x=0:y=0:w=iw:h=ih:color=" << config.overlayColor << ":t=fill";
-        }
-        
-        filter_spec << ",ass='" << ass_ffmpeg_path << "':fontsdir='" << fonts_ffmpeg_path << "'[v]";
 
         std::ostringstream video_codec;
         if (options.encoder == "hardware") {
@@ -145,6 +154,7 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
             std::cout << "Using software encoder: libx264 ('" << options.preset << "')" << std::endl;
         }
 
+        // Build ffmpeg command with all inputs
         std::stringstream final_cmd;
         final_cmd << "ffmpeg ";
         if (options.emitProgress) {
@@ -152,10 +162,20 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
         }
         final_cmd << "-y ";
         
+        // Add background video inputs
+        if (!bgInputFiles.empty()) {
+            // Dynamic backgrounds - add all video files as inputs
+            for (const auto& bgFile : bgInputFiles) {
+                final_cmd << "-i \"" << to_ffmpeg_path(bgFile) << "\" ";
+            }
+        } else {
+            // Static background with loop
+            final_cmd << "-stream_loop -1 -i \"" << to_ffmpeg_path(config.assetBgVideo) << "\" ";
+        }
+        
         // Handle audio differently for gapped vs gapless
         if (config.recitationMode == RecitationMode::GAPLESS) {
             // For gapless: use single surah audio file with precise trimming
-            // This is much more efficient than concat - one file read instead of N files
             if (verses.empty()) throw std::runtime_error("No verses to render");
             
             std::string audioPath;
@@ -177,25 +197,41 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
                 : measuredAudioDuration;
             total_duration = intro_duration + pause_after_intro_duration + audioDuration;
             
-            final_cmd
-                      << "-stream_loop -1 -i \"" << to_ffmpeg_path(config.assetBgVideo) << "\" "
-                      << "-f lavfi -t " << (intro_duration + pause_after_intro_duration) << " -i anullsrc=r=44100:cl=stereo ";
+            final_cmd << "-f lavfi -t " << (intro_duration + pause_after_intro_duration) << " -i anullsrc=r=44100:cl=stereo ";
             if (!customClip) {
                 final_cmd << "-ss " << startTime << " -t " << trimmedDuration << " ";
             }
-            final_cmd << "-i \"" << to_ffmpeg_path(audioPath) << "\" "
-                      << "-filter_complex \""
-                      << "[0:v]setpts=PTS-STARTPTS,scale=" << config.width << ":" << config.height;
+            final_cmd << "-i \"" << to_ffmpeg_path(audioPath) << "\" ";
             
+            // Build filter complex
+            final_cmd << "-filter_complex \"";
+            
+            // Handle video part
+            if (!bgInputFiles.empty()) {
+                // Dynamic backgrounds - use the pre-built filter complex
+                final_cmd << bgFilterComplex;
+            } else {
+                // Static background
+                final_cmd << "[0:v]setpts=PTS-STARTPTS,scale=" << config.width << ":" << config.height;
+            }
+            
+            // Add overlay if needed
             if (apply_overlay) {
                 final_cmd << ",drawbox=x=0:y=0:w=iw:h=ih:color=" << config.overlayColor << ":t=fill";
             }
             
+            // Add subtitles
             final_cmd << ",ass='" << ass_ffmpeg_path << "':fontsdir='" 
-                      << fonts_ffmpeg_path << "'[v];"
-                      << "[1:a][2:a]concat=n=2:v=0:a=1[a]\" "
-                      << "-map \"[v]\" -map \"[a]\" "
+                      << fonts_ffmpeg_path << "'[v];";
+            
+            // Handle audio concatenation
+            int audioInputIndex = bgInputFiles.empty() ? 1 : bgInputFiles.size();
+            final_cmd << "[" << audioInputIndex << ":a][" << (audioInputIndex + 1) << ":a]concat=n=2:v=0:a=1[a]\" ";
+            
+            // Map outputs
+            final_cmd << "-map \"[v]\" -map \"[a]\" "
                       << "-t " << total_duration << " ";
+                      
         } else {
             // For gapped: concatenate individual ayah audio files
             std::string concat_file_path = (fs::temp_directory_path() / "audiolist.txt").string();
@@ -211,15 +247,37 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
             for(const auto& verse : verses) totalVideoDuration += verse.durationInSeconds;
             total_duration = totalVideoDuration;
             
-            final_cmd
-                      << "-stream_loop -1 -i \"" << to_ffmpeg_path(config.assetBgVideo) << "\" "
-                      << "-itsoffset " << (intro_duration + pause_after_intro_duration) << " "
-                      << "-f concat -safe 0 -i \"" << to_ffmpeg_path(concat_file_path) << "\" "
-                      << "-filter_complex \"" << filter_spec.str() << "\" "
-                      << "-map \"[v]\" -map 1:a "
+            int audioInputIndex = bgInputFiles.empty() ? 1 : bgInputFiles.size();
+            final_cmd << "-itsoffset " << (intro_duration + pause_after_intro_duration) << " "
+                      << "-f concat -safe 0 -i \"" << to_ffmpeg_path(concat_file_path) << "\" ";
+            
+            // Build filter complex
+            final_cmd << "-filter_complex \"";
+            
+            // Handle video part
+            if (!bgInputFiles.empty()) {
+                // Dynamic backgrounds - use the pre-built filter complex
+                final_cmd << bgFilterComplex;
+            } else {
+                // Static background
+                final_cmd << "[0:v]setpts=PTS-STARTPTS,scale=" << config.width << ":" << config.height;
+            }
+            
+            // Add overlay if needed
+            if (apply_overlay) {
+                final_cmd << ",drawbox=x=0:y=0:w=iw:h=ih:color=" << config.overlayColor << ":t=fill";
+            }
+            
+            // Add subtitles
+            final_cmd << ",ass='" << ass_ffmpeg_path << "':fontsdir='" 
+                      << fonts_ffmpeg_path << "'[v]\" ";
+            
+            // Map outputs
+            final_cmd << "-map \"[v]\" -map " << audioInputIndex << ":a "
                       << "-t " << totalVideoDuration << " ";
         }
 
+        // Add encoding options
         final_cmd << video_codec.str() << " "
                   << "-c:a aac -b:a 128k "
                   << "-pix_fmt " << config.pixelFormat << " "
@@ -235,6 +293,9 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
             int exit_code = processExecutor->execute(final_cmd.str());
             if (exit_code != 0) throw std::runtime_error("FFmpeg execution failed");
         }
+
+        // Cleanup temporary background video files
+        bgManager.cleanup();
 
         std::cout << "\n✅ Render complete! Video saved to: " << options.output << std::endl;
 

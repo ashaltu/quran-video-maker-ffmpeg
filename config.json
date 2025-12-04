@@ -75,5 +75,24 @@
   "pixelFormat": "",
   "videoBitrate": "",
   "videoMaxRate": "",
-  "videoBufSize": ""
+  "videoBufSize": "",
+
+  "_comment_video_selection": "Dynamic background video selection",
+  "videoSelection": {
+    "enableDynamicBackgrounds": false,
+    "seed": 99,
+    
+    "_comment_local": "For local directory usage",
+    "useLocalDirectory": false,
+    "localVideoDirectory": "/path/to/local/videos",
+    
+    "_comment_r2": "For R2 usage",
+    "r2Endpoint": "${R2_ENDPOINT}",
+    "r2AccessKey": "${R2_ACCESS_KEY}",
+    "r2SecretKey": "${R2_SECRET_KEY}",
+    "r2Bucket": "quran-background-videos",
+    
+    "themeMetadataPath": "metadata/surah-themes.json",
+    "usePublicBucket": true
+  }
 }

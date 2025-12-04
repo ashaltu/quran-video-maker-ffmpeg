@@ -1,0 +1,18 @@
+{
+  "_comment": "Maps surah verse ranges to video themes for dynamic background selection",
+  "_format": "surah_number: { verse_range: [theme1, theme2, ...] }",
+  "_example": "19: { '1-15': ['dua', 'newlife'] } means verses 1-15 of Surah Maryam use 'dua' and 'newlife' themed videos",
+  
+
+  "1": {
+    "1-7": ["prayer", "guidance", "mercy"]
+  },
+  "19": {
+    "1-15": ["dua", "newlife", "mihrab"],
+    "16-33": ["maryam", "birth", "miracle"],
+    "34-40": ["truth", "debate", "prophethood"]
+  },
+  "112": {
+    "1-4": ["tawheed", "oneness", "eternity"]
+  }
+}

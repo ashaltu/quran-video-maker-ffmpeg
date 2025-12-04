@@ -2,6 +2,90 @@
 
 All notable changes to this project will be documented in this file. This project follows [Semantic Versioning](https://semver.org) and takes inspiration from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2025-01-04
+
+### Added
+- **Dynamic Background Videos**: Theme-based background video selection with automatic transitions based on verse ranges
+  - Support for R2 cloud storage (public and private buckets)
+  - Support for local video directories
+  - Configurable theme metadata mapping verses to video themes
+  - Deterministic video selection with configurable seed
+  - Video standardization utility for preparing background video collections
+- **Custom Recitations**: Support for custom audio files with precise verse timing
+  - VTT and SRT timing file parsing
+  - Automatic Bismillah detection in timing files
+  - Support for URL or local file paths
+  - Intelligent audio splicing for verse ranges
+- **Progress Reporting**: Structured JSON progress events for frontend integration
+  - Stage-based progress tracking (subtitles, background, encoding)
+  - Real-time encoding progress with percentage, elapsed time, and ETA
+  - Parseable output format for UI integration
+- **Backend Metadata Generation**: Generate comprehensive metadata JSON for backend servers
+  - Complete reciter and translation information
+  - Surah names in multiple languages
+  - Verse counts and localization data
+- **Enhanced Configuration**:
+  - `videoSelection` configuration block for dynamic backgrounds
+  - `recitationMode` configuration option (gapped/gapless)
+  - Environment variable expansion in config files (e.g., `${R2_ENDPOINT}`)
+- **New CLI Options**:
+  - `--enable-dynamic-bg`: Enable dynamic background video selection
+  - `--seed`: Deterministic seed for reproducible results
+  - `--local-video-dir`: Use local video directory instead of R2
+  - `--r2-endpoint`, `--r2-access-key`, `--r2-secret-key`, `--r2-bucket`: R2 configuration
+  - `--custom-audio`, `--custom-timing`: Custom recitation support
+  - `--standardize-local`, `--standardize-r2`: Video standardization utilities
+  - `--progress`: Emit structured progress events
+  - `--generate-backend-metadata`: Generate metadata for backend integration
+
+### Changed
+- **Video Pipeline**: Refactored to support dynamic video concatenation without pre-stitching
+  - Improved FFmpeg filter complex generation
+  - Direct video trimming and concatenation in FFmpeg
+  - Better memory efficiency for long video sequences
+- **Audio Processing**: Enhanced custom audio processor with intelligent splicing
+  - Automatic Bismillah handling for custom recitations
+  - Precise timestamp adjustment for verse ranges
+  - Support for both gapped and gapless modes
+- **Configuration Loading**: Improved path resolution and validation
+  - Better asset discovery relative to config file location
+  - Automatic fallback to installation directories
+  - Enhanced error messages for missing assets
+- **Cache System**: Extended caching for background videos
+  - Separate cache directory for downloaded R2 videos
+  - Cache validation and reuse across renders
+- **Metadata Writing**: Enhanced metadata output with complete reproduction information
+  - Full command-line argument capture
+  - Config file content embedding
+  - Absolute path resolution for all assets
+
+### Fixed
+- Arabic digit conversion in timing files (e.g., ١٢٣ → 123)
+- Bismillah detection in mixed Arabic/English timing files
+- Memory leaks in video duration probing
+- Path normalization on Windows for FFmpeg arguments
+- Font fallback handling for mixed scripts in translations
+
+### Technical
+- **New Dependencies**:
+  - AWS SDK for C++ (S3 client for R2 integration)
+  - Enhanced libav* usage for video duration probing
+- **New Modules**:
+  - `background_video_manager`: Dynamic background video orchestration
+  - `video_selector`: Theme-based video selection with playlist management
+  - `r2_client`: R2/S3-compatible object storage client
+  - `video_standardizer`: Video normalization utility
+  - `timing_parser`: VTT/SRT timing file parser
+  - `audio/custom_audio_processor`: Custom audio handling and splicing
+- **Refactored Modules**:
+  - `video_generator`: Separated concerns for audio, video, and filter generation
+  - `config_loader`: Enhanced with environment variable expansion
+  - `cache_utils`: Extended for multi-source caching
+- **Testing**:
+  - Added mock implementations for API and process execution
+  - Extended unit test coverage for new modules
+  - CI smoke tests for dynamic backgrounds and custom audio
+
 ## [0.1.4] - 2025-11-26
 ### Changed
 - Fixed videos not looping.

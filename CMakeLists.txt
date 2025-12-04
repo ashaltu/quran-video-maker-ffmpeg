@@ -5,7 +5,6 @@ set(CPACK_PACKAGE_VERSION "0.0.0-dev" CACHE STRING "Package version")
 set(CPACK_PACKAGE_VENDOR "ashaltu")
 set(CPACK_GENERATOR "ZIP")
 if(WIN32)
-    # Keep Windows artifacts named with a -win64 suffix for Scoop and release automation.
     set(CPACK_SYSTEM_NAME "win64")
 elseif(APPLE)
     set(CPACK_SYSTEM_NAME "macos")
@@ -36,9 +35,6 @@ endif()
 # Dependency: cpr
 find_package(cpr CONFIG)
 if(WIN32)
-    # Always build CPR/cURL ourselves on Windows so we can force the Schannel
-    # backend and rely on the native certificate store instead of a missing
-    # OpenSSL CA bundle in Scoop installs.
     set(cpr_FOUND FALSE)
 endif()
 if(NOT cpr_FOUND)
@@ -70,12 +66,60 @@ if(NOT nlohmann_json_FOUND)
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
+# Dependency: AWS SDK for C++
+# Try to find pre-installed AWS SDK first (from vcpkg, MSYS2, Homebrew, or system)
+find_package(AWSSDK CONFIG COMPONENTS s3 QUIET)
+
+if(AWSSDK_FOUND)
+    message(STATUS "Found AWS SDK via find_package(AWSSDK)")
+    set(AWS_SDK_LIBS ${AWSSDK_LINK_LIBRARIES})
+else()
+    # Try alternative package names (MSYS2 and Homebrew use different naming)
+    find_package(aws-cpp-sdk-core CONFIG QUIET)
+    find_package(aws-cpp-sdk-s3 CONFIG QUIET)
+    
+    if(TARGET aws-cpp-sdk-s3 AND TARGET aws-cpp-sdk-core)
+        message(STATUS "Found AWS SDK components individually")
+        set(AWS_SDK_LIBS aws-cpp-sdk-s3 aws-cpp-sdk-core)
+    else()
+        # Try pkg-config as fallback (Homebrew)
+        find_package(PkgConfig QUIET)
+        if(PKG_CONFIG_FOUND)
+            pkg_check_modules(AWS_SDK_CORE QUIET aws-cpp-sdk-core)
+            pkg_check_modules(AWS_SDK_S3 QUIET aws-cpp-sdk-s3)
+        endif()
+        
+        if(AWS_SDK_CORE_FOUND AND AWS_SDK_S3_FOUND)
+            message(STATUS "Found AWS SDK via pkg-config")
+            set(AWS_SDK_LIBS ${AWS_SDK_S3_LIBRARIES} ${AWS_SDK_CORE_LIBRARIES})
+            include_directories(${AWS_SDK_CORE_INCLUDE_DIRS} ${AWS_SDK_S3_INCLUDE_DIRS})
+            link_directories(${AWS_SDK_CORE_LIBRARY_DIRS} ${AWS_SDK_S3_LIBRARY_DIRS})
+        else()
+            # Try direct library search (for Homebrew installs)
+            find_library(AWS_CORE_LIB aws-cpp-sdk-core HINTS /opt/homebrew/lib /usr/local/lib)
+            find_library(AWS_S3_LIB aws-cpp-sdk-s3 HINTS /opt/homebrew/lib /usr/local/lib)
+            find_path(AWS_CORE_INCLUDE aws/core/Aws.h HINTS /opt/homebrew/include /usr/local/include)
+            
+            if(AWS_CORE_LIB AND AWS_S3_LIB AND AWS_CORE_INCLUDE)
+                message(STATUS "Found AWS SDK via direct library search")
+                set(AWS_SDK_LIBS ${AWS_S3_LIB} ${AWS_CORE_LIB})
+                include_directories(${AWS_CORE_INCLUDE})
+            else()
+                message(FATAL_ERROR 
+                    "AWS SDK not found. Please install it via:\n"
+                    "  - vcpkg: vcpkg install aws-sdk-cpp[s3]\n"
+                    "  - MSYS2: pacman -S mingw-w64-ucrt-x86_64-aws-sdk-cpp\n"
+                    "  - Homebrew: brew install aws-sdk-cpp")
+            endif()
+        endif()
+    endif()
+endif()
+
 # Find required system libraries
 find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
-# Find FFmpeg libraries using PkgConfig. Request IMPORTED_TARGET so link and
-# include directories are propagated correctly on all platforms (e.g. macOS).
+# Find FFmpeg libraries using PkgConfig
 pkg_check_modules(AVFORMAT REQUIRED IMPORTED_TARGET libavformat)
 pkg_check_modules(AVCODEC REQUIRED IMPORTED_TARGET libavcodec)
 pkg_check_modules(AVFILTER REQUIRED IMPORTED_TARGET libavfilter)
@@ -101,6 +145,10 @@ add_library(qvm_lib STATIC
     src/audio/custom_audio_processor.cpp src/audio/custom_audio_processor.h
     src/text/text_layout.cpp src/text/text_layout.h
     src/types.h
+    src/background_video_manager.cpp src/background_video_manager.h
+    src/r2_client.cpp src/r2_client.h
+    src/video_selector.cpp src/video_selector.h
+    src/video_standardizer.cpp src/video_standardizer.h
 )
 
 add_executable(qvm src/main.cpp)
@@ -121,6 +169,7 @@ target_link_libraries(qvm_lib PUBLIC
     nlohmann_json::nlohmann_json
     Threads::Threads
     cxxopts::cxxopts
+    ${AWS_SDK_LIBS}
 )
 
 target_link_libraries(qvm PRIVATE qvm_lib)
@@ -167,7 +216,6 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 endif()
 
 if(WIN32)
-    # Optional: include a CA bundle alongside the binary for OpenSSL-based curls
     if(EXISTS "${CMAKE_BINARY_DIR}/ca-bundle.crt")
         install(FILES "${CMAKE_BINARY_DIR}/ca-bundle.crt"
             DESTINATION etc/ssl/certs

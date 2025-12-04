@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <vector>
 #include "cxxopts.hpp"
-
+#include "video_standardizer.h"
 #include "types.h"
 #include "LiveApiClient.h"
 #include "video_generator.h"
@@ -51,10 +51,40 @@ int main(int argc, char* argv[]) {
         ("custom-audio", "Custom audio file path or URL (gapless mode only)", cxxopts::value<std::string>())
         ("custom-timing", "Custom timing file (VTT or SRT format)", cxxopts::value<std::string>())
         ("generate-backend-metadata,gbm", "Generate metadata for backend server and exit")
+        ("seed", "Deterministic value for reproducible results", cxxopts::value<unsigned int>()->default_value("99"))
+        ("enable-dynamic-bg", "Enable dynamic background video selection based on themes", cxxopts::value<bool>()->default_value("false"))
+        ("local-video-dir", "Use local directory for dynamic backgrounds instead of R2", cxxopts::value<std::string>())
+        ("r2-endpoint", "R2 endpoint URL (e.g., https://pub-xxx.r2.dev)", cxxopts::value<std::string>())
+        ("r2-access-key", "R2 access key (for private buckets)", cxxopts::value<std::string>())
+        ("r2-secret-key", "R2 secret key (for private buckets)", cxxopts::value<std::string>())
+        ("r2-bucket", "R2 bucket name", cxxopts::value<std::string>()->default_value("quran-background-videos"))
+        ("standardize-local", "Standardize all videos in a local directory", cxxopts::value<std::string>())
+        ("standardize-r2", "Standardize videos in R2 bucket (requires credentials)", cxxopts::value<std::string>())
         ("h,help", "Print usage");
     
     cli_parser.parse_positional({"surah", "from", "to"});
     auto result = cli_parser.parse(argc, argv);
+
+    // Handle standardization
+    if (result.count("standardize-local")) {
+        try {
+            VideoStandardizer::standardizeDirectory(result["standardize-local"].as<std::string>(), false);
+        } catch (const std::exception& e) {
+            std::cerr << "Standardization failed: " << e.what() << std::endl;
+            return 1;
+        }
+        return 0;
+    }
+
+    if (result.count("standardize-r2")) {
+        try {
+            VideoStandardizer::standardizeDirectory(result["standardize-r2"].as<std::string>(), true);
+        } catch (const std::exception& e) {
+            std::cerr << "Standardization failed: " << e.what() << std::endl;
+            return 1;
+        }
+        return 0;
+    }
 
     if (result.count("generate-backend-metadata")) {
         if (!result.count("output")) {
@@ -120,6 +150,23 @@ int main(int argc, char* argv[]) {
     if (result.count("maxrate")) options.videoMaxRateOverride = result["maxrate"].as<std::string>();
     if (result.count("bufsize")) options.videoBufSizeOverride = result["bufsize"].as<std::string>();
     
+    // Dynamic background video options
+    options.videoSelection.seed = result["seed"].as<unsigned int>();
+    options.videoSelection.enableDynamicBackgrounds = result["enable-dynamic-bg"].as<bool>();
+    if (result.count("local-video-dir")) {
+        options.videoSelection.localVideoDirectory = result["local-video-dir"].as<std::string>();
+    }
+    if (result.count("r2-endpoint")) options.videoSelection.r2Endpoint = result["r2-endpoint"].as<std::string>();
+    if (result.count("r2-access-key")) {
+        options.videoSelection.r2AccessKey = result["r2-access-key"].as<std::string>();
+        options.videoSelection.usePublicBucket = false;
+    }
+    if (result.count("r2-secret-key")) {
+        options.videoSelection.r2SecretKey = result["r2-secret-key"].as<std::string>();
+        options.videoSelection.usePublicBucket = false;
+    }
+    if (result.count("r2-bucket")) options.videoSelection.r2Bucket = result["r2-bucket"].as<std::string>();
+
     // Custom recitation options
     if (result.count("custom-audio")) options.customAudioPath = result["custom-audio"].as<std::string>();
     if (result.count("custom-timing")) options.customTimingFile = result["custom-timing"].as<std::string>();

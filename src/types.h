@@ -14,6 +14,19 @@ struct FontConfig {
     std::string color;
 };
 
+struct VideoSelectionConfig {
+    std::string r2Endpoint;
+    std::string r2AccessKey;
+    std::string r2SecretKey;
+    std::string r2Bucket = "quran-background-videos";
+    std::string themeMetadataPath = "metadata/surah-themes.json";
+    unsigned int seed = 99;
+    bool enableDynamicBackgrounds = false;
+    bool usePublicBucket = true;  // Default to public access
+    bool useLocalDirectory = false;  // Use local directory instead of R2
+    std::string localVideoDirectory = "";  // Path to local video directory
+};
+
 struct AppConfig {
     // Video dimensions
     int width;
@@ -76,6 +89,9 @@ struct AppConfig {
     std::string videoBitrate;
     std::string videoMaxRate;
     std::string videoBufSize;
+
+    // R2 dynamic video selection configuration
+    VideoSelectionConfig videoSelection;
 };
 
 // Word segment timing information for gapless mode
@@ -142,4 +158,7 @@ struct CLIOptions {
     std::string videoBitrateOverride = "";
     std::string videoMaxRateOverride = "";
     std::string videoBufSizeOverride = "";
+
+    // R2 dynamic video selection configuration
+    VideoSelectionConfig videoSelection;
 };
