@@ -145,8 +145,10 @@ We especially welcome contributions in these areas:
 4. **Platform Support**: Testing and fixes for different OS/architectures
 5. **Documentation**: Improving guides, examples, and comments
 6. **Testing**: Writing tests and test cases
-7. **Timing Accuracy**: Improving verse timing precision
+7. **Timing Accuracy**: Improving verse timing precision and VTT/SRT parser robustness
 8. **Font Support**: Adding support for more languages and scripts
+9. **Dynamic Backgrounds**: Contributing themed video collections or theme metadata configurations
+10. **Integration Features**: Progress reporting, metadata generation, and backend tooling
 
 ## Adding a New Language or Translation
 
@@ -174,6 +176,9 @@ These areas require careful consideration:
 - **FFmpeg Integration**: Performance-critical, test thoroughly
 - **Timing Parsers**: Must handle edge cases correctly
 - **Configuration**: Breaking changes should be avoided
+- **Background Video Selection**: Must handle missing videos gracefully and maintain theme consistency
+- **R2/Cloud Integration**: Must respect rate limits and handle network failures
+- **Progress Reporting**: JSON output must be valid and parseable
 
 ## Development Setup
 
@@ -230,6 +235,63 @@ Always test with various surahs:
 - Long surahs (e.g., Al-Baqarah)
 - Different reciters and modes
 - Edge cases (Surah 9 without Bismillah)
+
+#### Testing Dynamic Backgrounds
+
+When working on background video features:
+```bash
+# Test with local directory
+mkdir -p test-videos/prayer test-videos/guidance
+# Add test videos to these directories
+qvm 1 1 7 --enable-dynamic-bg --local-video-dir ./test-videos
+
+# Test theme metadata parsing
+# Edit metadata/surah-themes.json and verify selections
+qvm 19 1 40 --enable-dynamic-bg --seed 42
+
+# Test video standardization
+qvm --standardize-local ./test-videos
+# Verify all videos are converted to _std.mp4 format
+```
+
+#### Testing Custom Audio Features
+
+When working on custom audio/timing:
+```bash
+# Create a test timing file (VTT format)
+cat > test-timing.vtt << 'EOF'
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.500
+1. بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
+
+2
+00:00:03.500 --> 00:00:08.200
+2. ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ
+EOF
+
+# Test with local audio
+qvm 1 1 2 --custom-audio ./test-audio.mp3 --custom-timing ./test-timing.vtt
+
+# Test with verse range slicing
+qvm 19 50 70 --custom-audio ./surah19.mp3 --custom-timing ./surah19.vtt
+```
+
+#### Testing Progress Reporting
+
+When working on progress features:
+```bash
+# Test structured output
+qvm 1 1 7 --progress | grep "PROGRESS"
+
+# Test all stages emit events
+qvm 1 1 7 --progress 2>&1 | jq -r 'select(startswith("PROGRESS")) | fromjson | .stage' | sort -u
+# Should see: background, encoding, subtitles
+
+# Test ETA calculations
+qvm 2 1 50 --progress | grep '"eta"'
+```
 
 ### Debugging
 
