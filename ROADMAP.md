@@ -8,7 +8,7 @@ The project is in active development with core functionality working but many fe
 
 ## Testing
 
-Basic unit tests now cover config loading, timing parsing, recitation utilities, and cache helpers. Remaining work is to expand coverage into video generation and add integration/e2e suites, followed by CI automation for regressions and release packaging.
+Basic unit tests now cover config loading, timing parsing, recitation utilities, cache helpers, and verse segmentation. Remaining work is to expand coverage into video generation and add integration/e2e suites, followed by CI automation for regressions and release packaging.
 
 ## Core Features (In Progress)
 
@@ -81,7 +81,25 @@ Automatically adjusts font sizes based on verse length.
 
 **TODOs:**
 - Implement size calculations to account for screen aspect ratio changes (current support is for landscape mode)
-- Continue tuning adaptive heuristics for portrait canvases and extremely long verses (e.g., 2:282-283) so both Arabic and translations share the available space gracefully
+- Continue tuning adaptive heuristics for portrait canvases
+
+### Verse Segmentation (Long Verses)
+**Status:** 🟢 Stable
+
+Break extremely long verses (e.g., 2:282, 58:11) into timed segments that display sequentially.
+
+**Working:**
+- Configurable list of "long" verses (`metadata/long-verses.json`)
+- Reciter-specific segment timing data with Arabic and translation text per segment
+- Automatic fallback to standard rendering when segment data is unavailable
+- Independent text layout and adaptive sizing for each segment
+- Segment timing correctly mapped to video timeline
+- Integration with gapless/custom audio workflows
+
+**TODOs:**
+- Create segment data for more reciters and long verses
+- Add tooling to help generate segment timing files from existing VTT/SRT
+- Consider automatic segmentation based on punctuation or breath markers when no manual data exists
 
 ### Text Animations
 **Status:** 🟢 Stable
@@ -179,17 +197,20 @@ Downloads and caches audio files for reuse across multiple renders.
 
 - Verses:
   - Add single verse previews (should create an image)
-- Simple Video Effects(not started):
+- Simple Video Effects (not started):
   - Add particle effects
   - Implement light rays and glows
   - Create customizable visual themes
-- HLS Streaming Support(not started):
+- HLS Streaming Support (not started):
   - Generate HLS manifests for progressive playback
   - Support multiple quality renditions (720p, 1080p, 4K)
   - Ensure compatibility with web players and mobile apps
-- Full Surah Automation(not started):
+- Full Surah Automation (not started):
   - Implement automatic verse range detection (as opposed to specifying from/to)
   - Add batch rendering for multiple surahs (should be a list or an inclusive range like 110-114)
+- Segment Data Generation:
+  - Build tooling to semi-automatically generate segment timing from forced alignment or existing word-level timestamps
+  - Create a web UI or CLI wizard for manual segment boundary adjustment
 
 ## Contributing
 
