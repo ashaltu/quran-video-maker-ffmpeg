@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include <iomanip>
 #include <thread>
 #include <future>
@@ -41,6 +42,19 @@ std::string format_ass_color(const std::string& hex_color) {
 bool is_basic_latin_ascii(unsigned char c) {
     return c >= 0x20 && c <= 0x7E;
 }
+
+// Helper struct for segment dialogue generation
+struct SegmentDialogue {
+    double startTime;
+    double endTime;
+    std::string arabicText;
+    std::string translationText;
+    int arabicSize;
+    int translationSize;
+    double arabicGrowthFactor;
+    double translationGrowthFactor;
+    bool growEnabled;
+};
 
 } // namespace
 
@@ -101,7 +115,8 @@ std::string buildAssFile(const AppConfig& config,
                          const CLIOptions& options,
                          const std::vector<VerseData>& verses,
                          double intro_duration,
-                         double pause_after_intro_duration) {
+                         double pause_after_intro_duration,
+                         const VerseSegmentation::Manager* segmentManager) {
     fs::path ass_path = fs::temp_directory_path() / "subtitles.ass";
     std::ofstream ass_file(ass_path);
     if (!ass_file.is_open()) throw std::runtime_error("Failed to create temporary subtitle file.");
@@ -130,6 +145,7 @@ std::string buildAssFile(const AppConfig& config,
     ass_file << "[Events]\n";
     ass_file << "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n";
 
+    // Intro subtitle
     int base_font_size = config.translationFont.size;
     int scaled_font_size = static_cast<int>(base_font_size * (config.width * 0.7 / (base_font_size * 6.0)));
     if (scaled_font_size < base_font_size) scaled_font_size = base_font_size;
@@ -154,40 +170,92 @@ std::string buildAssFile(const AppConfig& config,
             << "\\fad(0," << config.introFadeOutMs << ")}"
             << range_text << "\n";
 
-    // Process verses in parallel
-    std::vector<VerseData> processed_verses(verses.size());
-    std::vector<TextLayout::LayoutResult> layout_results(verses.size());
-    std::vector<std::future<void>> futures;
-    size_t max_threads = std::max<size_t>(1, std::thread::hardware_concurrency());
-
-    for (size_t i = 0; i < verses.size(); ++i) {
-        futures.push_back(std::async(std::launch::async, [&, i]() {
-            processed_verses[i] = verses[i];
-            layout_results[i] = layoutEngine.layoutVerse(verses[i]);
-            processed_verses[i].text = layout_results[i].wrappedArabic;
-            processed_verses[i].translation = layout_results[i].wrappedTranslation;
-        }));
-
-        if (futures.size() >= max_threads) {
-            for (auto& f : futures) f.get();
-            futures.clear();
-        }
-    }
-
-    for (auto& f : futures) f.get();
-
+    // Collect all dialogue entries (verses and segments)
+    std::vector<SegmentDialogue> allDialogues;
+    
     double cumulative_time = intro_duration + pause_after_intro_duration;
     double verticalPadding = config.height * std::clamp(config.textVerticalPadding, 0.0, 0.3);
 
-    for (size_t idx = 0; idx < processed_verses.size(); ++idx) {
-        VerseData verse = processed_verses[idx];
-        const auto& info = layout_results[idx];
+    for (size_t idx = 0; idx < verses.size(); ++idx) {
+        const VerseData& verse = verses[idx];
+        double verse_audio_start = verse.timestampFromMs / 1000.0;
+        
+        // Check if this verse should be segmented
+        bool useSegmentation = segmentManager && 
+                               segmentManager->isEnabled() && 
+                               segmentManager->shouldSegmentVerse(verse.verseKey);
+        
+        if (useSegmentation) {
+            // Get segments for this verse
+            auto segments = segmentManager->getSegments(verse.verseKey);
+            
+            std::cout << "  Segmenting verse " << verse.verseKey << " into " 
+                      << segments.size() << " parts" << std::endl;
+            
+            for (size_t segIdx = 0; segIdx < segments.size(); ++segIdx) {
+                const auto& segment = segments[segIdx];
+                
+                // Calculate segment timing relative to video timeline
+                // segment.startSeconds is absolute time in the audio file
+                // verse_audio_start is when this verse starts in the audio
+                // cumulative_time is when this verse starts in the video
+                double segment_offset_from_verse = segment.startSeconds - verse_audio_start;
+                double segment_start_in_video = cumulative_time + segment_offset_from_verse;
+                double segment_end_in_video = cumulative_time + (segment.endSeconds - verse_audio_start);
+                double segment_duration = segment.endSeconds - segment.startSeconds;
+                
+                // Layout the segment text
+                auto layout = layoutEngine.layoutSegment(segment.arabic, 
+                                                          segment.translation, 
+                                                          segment_duration);
+                
+                SegmentDialogue dialogue;
+                dialogue.startTime = segment_start_in_video;
+                dialogue.endTime = segment_end_in_video;
+                dialogue.arabicText = layout.wrappedArabic;
+                dialogue.translationText = applyLatinFontFallback(
+                    layout.wrappedTranslation, 
+                    config.translationFallbackFontFamily, 
+                    config.translationFont.family);
+                dialogue.arabicSize = layout.baseArabicSize;
+                dialogue.translationSize = layout.baseTranslationSize;
+                dialogue.arabicGrowthFactor = layout.arabicGrowthFactor;
+                dialogue.translationGrowthFactor = layout.translationGrowthFactor;
+                dialogue.growEnabled = layout.growArabic;
+                
+                allDialogues.push_back(dialogue);
+            }
+        } else {
+            // Standard verse handling (no segmentation)
+            auto layout = layoutEngine.layoutVerse(verse);
+            
+            SegmentDialogue dialogue;
+            dialogue.startTime = cumulative_time;
+            dialogue.endTime = cumulative_time + verse.durationInSeconds;
+            dialogue.arabicText = layout.wrappedArabic;
+            dialogue.translationText = applyLatinFontFallback(
+                layout.wrappedTranslation, 
+                config.translationFallbackFontFamily, 
+                config.translationFont.family);
+            dialogue.arabicSize = layout.baseArabicSize;
+            dialogue.translationSize = layout.baseTranslationSize;
+            dialogue.arabicGrowthFactor = layout.arabicGrowthFactor;
+            dialogue.translationGrowthFactor = layout.translationGrowthFactor;
+            dialogue.growEnabled = layout.growArabic;
+            
+            allDialogues.push_back(dialogue);
+        }
+        
+        cumulative_time += verse.durationInSeconds;
+    }
 
-        int arabic_size = info.baseArabicSize;
-        std::string translation_rendered = applyLatinFontFallback(
-            verse.translation, config.translationFallbackFontFamily, config.translationFont.family);
-        int translation_size = info.baseTranslationSize;
+    // Generate dialogue lines for all entries
+    for (const auto& dialogue : allDialogues) {
+        int arabic_size = dialogue.arabicSize;
+        int translation_size = dialogue.translationSize;
+        double duration = dialogue.endTime - dialogue.startTime;
 
+        // Scale down if needed to fit screen
         double max_total_height = config.height * 0.8;
         double estimated_height = arabic_size * 1.2 + translation_size * 1.4;
         if (estimated_height > max_total_height) {
@@ -195,10 +263,6 @@ std::string buildAssFile(const AppConfig& config,
             arabic_size = static_cast<int>(arabic_size * scale_factor);
             translation_size = static_cast<int>(translation_size * scale_factor);
         }
-
-        bool grow = info.growArabic;
-        double growth_factor = info.arabicGrowthFactor;
-        double translation_growth = info.translationGrowthFactor;
 
         double vertical_shift = config.verticalShift;
         double total_height = arabic_size * 1.2 + translation_size * 1.4;
@@ -214,7 +278,7 @@ std::string buildAssFile(const AppConfig& config,
         }
 
         double fade_time = std::min(
-            std::max(verse.durationInSeconds * config.fadeDurationFactor, config.minFadeDuration),
+            std::max(duration * config.fadeDurationFactor, config.minFadeDuration),
             config.maxFadeDuration);
 
         std::stringstream combined;
@@ -222,25 +286,24 @@ std::string buildAssFile(const AppConfig& config,
                  << "\\fs" << arabic_size
                  << "\\pos(" << config.width / 2 << "," << arabic_y << ")"
                  << "\\fad(" << (fade_time * 1000) << "," << (fade_time * 1000) << ")";
-        if (grow) {
-            combined << "\\t(0," << verse.durationInSeconds * 1000 << ",\\fs" << arabic_size * growth_factor << ")";
+        if (dialogue.growEnabled) {
+            combined << "\\t(0," << duration * 1000 << ",\\fs" 
+                     << arabic_size * dialogue.arabicGrowthFactor << ")";
         }
-        combined << "}" << verse.text
+        combined << "}" << dialogue.arabicText
                  << "\\N{\\an5\\q2\\rTranslation"
                  << "\\fs" << translation_size
                  << "\\pos(" << config.width / 2 << "," << translation_y << ")"
                  << "\\fad(" << (fade_time * 1000) << "," << (fade_time * 1000) << ")";
-        if (translation_growth > 1.0) {
-            combined << "\\t(0," << verse.durationInSeconds * 1000 << ",\\fs"
-                     << translation_size * translation_growth << ")";
+        if (dialogue.translationGrowthFactor > 1.0) {
+            combined << "\\t(0," << duration * 1000 << ",\\fs"
+                     << translation_size * dialogue.translationGrowthFactor << ")";
         }
-        combined << "}" << translation_rendered;
+        combined << "}" << dialogue.translationText;
 
-        ass_file << "Dialogue: 0," << format_time_ass(cumulative_time) << ","
-                 << format_time_ass(cumulative_time + verse.durationInSeconds)
+        ass_file << "Dialogue: 0," << format_time_ass(dialogue.startTime) << ","
+                 << format_time_ass(dialogue.endTime)
                  << ",Translation,,0,0,0,," << combined.str() << "\n";
-
-        cumulative_time += verse.durationInSeconds;
     }
 
     return ass_path.string();

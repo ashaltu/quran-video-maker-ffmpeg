@@ -217,6 +217,39 @@ You can override any individual quality parameter via CLI (`--quality-profile`, 
 
 `config.json` now exposes a `qualityProfiles` object where you can describe presets for `speed`, `balanced`, `max`, or any custom label you invent. Each entry can override `preset`, `crf`, `pixelFormat`, and the optional bitrate knobs. The CLI flag `--quality-profile` simply picks one of those blocks (default: `balanced`) and still allows overriding individual values via `--preset`, `--crf`, `--pix-fmt`, `--video-bitrate`, `--maxrate`, and `--bufsize`.
 
+### Verse Segmentation (Long Verses)
+
+For very long verses that don't fit on screen, you can break them into timed segments:
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--segment-long-verses` | Enable segmentation of long verses | false |
+| `--segment-data` | Path to segment timing JSON file (required when enabled) | - |
+| `--long-verses` | Path to list of long verses | `metadata/long-verses.json` |
+
+**Segment Data Format:**
+
+The `start` and `end` times are absolute positions in the audio file (in seconds).
+
+```json
+{
+  "2:282": [
+    {
+      "start": 1234.56,
+      "end": 1240.00,
+      "arabic": "يَـٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوٓا۟",
+      "translation": "O you who believe!",
+      "is_last": false
+    },
+    {
+      "start": 1240.00,
+      "end": 1248.50,
+      "arabic": "إِذَا تَدَايَنتُم بِدَيْنٍ",
+      "translation": "When you contract a debt",
+      "is_last": false
+    }
+  ]
+}
 
 ### Dynamic Background Videos
 The tool supports dynamic background video selection based on verse themes. Videos are automatically selected and concatenated during rendering without pre-stitching.

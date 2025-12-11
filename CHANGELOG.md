@@ -2,7 +2,56 @@
 
 All notable changes to this project will be documented in this file. This project follows [Semantic Versioning](https://semver.org) and takes inspiration from [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.2.0] - 2025-01-04
+## [Unreleased] - 2025-10-12
+
+### Added
+- **Verse Segmentation for Long Verses**: Break up lengthy verses into timed segments that display sequentially
+  - New `--segment-long-verses` flag to enable segmentation for verses defined as "long"
+  - New `--segment-data` flag to specify reciter-specific segment timing JSON file
+  - New `--long-verses` flag to customize which verses are considered long (default: `metadata/long-verses.json`)
+  - Automatic fallback to standard rendering when segment data is unavailable
+  - Independent text layout and sizing for each segment
+  - Seamless integration with existing gapless/custom audio workflows
+- **Long Verses Definition File**: Added `metadata/long-verses.json` containing verse keys for extremely long verses (e.g., 2:282, 58:11)
+
+### Changed
+- **Text Layout Engine**: Added `layoutSegment()` method for laying out arbitrary text segments with duration-based growth calculations
+- **Subtitle Builder**: Refactored to support mixed verse and segment dialogue generation
+  - Segments are timed relative to the video timeline using absolute audio timestamps
+  - Each segment receives independent adaptive sizing and wrapping
+- **Video Generator**: Updated to accept optional segmentation manager for subtitle generation
+
+### Technical
+- **New Module**:
+  - `verse_segmentation`: Manager class for loading long verse definitions and reciter segment data, with query methods for determining segmentation eligibility
+- **Updated Modules**:
+  - `text/text_layout`: Extended Engine class with segment-specific layout method
+  - `subtitle_builder`: Restructured dialogue generation to handle both full verses and segments
+  - `video_generator`: Plumbed segmentation manager through to subtitle generation
+
+### Segment Data Format
+Reciter segment timing files follow this structure:
+```json
+{
+  "19:4": [
+    {
+      "start": 20.22,
+      "end": 24.5,
+      "arabic": "قَالَ رَبِّ إِنِّي وَهَنَ ٱلۡعَظۡمُ مِنِّي",
+      "translation": "He said, \"My Lord, indeed my bones have weakened",
+      "is_last": false
+    },
+    {
+      "start": 24.76,
+      "end": 35.0,
+      "arabic": "وَٱشۡتَعَلَ ٱلرَّأۡسُ شَيۡبٗا...",
+      "translation": "and my head has filled with white...",
+      "is_last": true
+    }
+  ]
+}
+
+## [0.2.0] - 2025-12-04
 
 ### Added
 - **Dynamic Background Videos**: Theme-based background video selection with automatic transitions based on verse ranges

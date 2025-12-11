@@ -212,4 +212,34 @@ LayoutResult Engine::layoutVerse(const VerseData& verse) const {
     return layout;
 }
 
+// Layout arbitrary text (for verse segments)
+LayoutResult Engine::layoutSegment(const std::string& arabic,
+                                   const std::string& translation,
+                                   double durationSeconds) const {
+    LayoutResult layout;
+    layout.arabicWordCount = count_words(arabic);
+    layout.baseArabicSize = adaptive_font_size_arabic(arabic, config_.arabicFont.size);
+    layout.growArabic = should_grow(layout.arabicWordCount, config_);
+    layout.arabicGrowthFactor = layout.growArabic
+        ? std::min(config_.maxGrowthFactor, 1.0 + durationSeconds * config_.growthRateFactor)
+        : 1.0;
+    int maxArabicSize = std::max(1, static_cast<int>(layout.baseArabicSize * layout.arabicGrowthFactor));
+
+    FontContext arabic_ctx = init_font(config_.arabicFont.file, maxArabicSize);
+    layout.wrappedArabic = wrap_if_needed(arabic, arabic_ctx, arabicWrapWidth_);
+    free_font(arabic_ctx);
+
+    layout.baseTranslationSize = adaptive_font_size_translation(translation, config_.translationFont.size);
+    layout.translationGrowthFactor = layout.growArabic ? layout.arabicGrowthFactor : 1.0;
+    int maxTranslationSize =
+        std::max(1, static_cast<int>(layout.baseTranslationSize * layout.translationGrowthFactor));
+
+    FontContext translation_ctx = init_font(config_.translationFont.file, maxTranslationSize);
+    layout.wrappedTranslation = wrap_if_needed(translation, translation_ctx, translationWrapWidth_);
+    free_font(translation_ctx);
+
+    return layout;
+}
+
+
 } // namespace TextLayout

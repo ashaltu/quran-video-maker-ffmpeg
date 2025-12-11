@@ -161,4 +161,9 @@ struct CLIOptions {
 
     // R2 dynamic video selection configuration
     VideoSelectionConfig videoSelection;
+
+    // Verse segmentation options (for breaking up long verses into timed segments)
+    bool segmentLongVerses = false;
+    std::string segmentDataPath = "";           // Path to reciter-specific segment timing JSON
+    std::string longVersesPath = "metadata/long-verses.json";  // Path to list of long verses
 };

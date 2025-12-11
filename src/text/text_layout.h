@@ -21,6 +21,7 @@ public:
     explicit Engine(const AppConfig& config);
 
     LayoutResult layoutVerse(const VerseData& verse) const;
+    LayoutResult layoutSegment(const std::string& arabic, const std::string& translation, double durationSeconds) const;
     double paddingPixels() const { return paddingPixels_; }
     double arabicWrapWidth() const { return arabicWrapWidth_; }
     double translationWrapWidth() const { return translationWrapWidth_; }

@@ -1,4 +1,5 @@
 #include "video_generator.h"
+#include "verse_segmentation.h"
 #include "background_video_manager.h"
 #include "quran_data.h"
 #include "audio/custom_audio_processor.h"
@@ -77,7 +78,11 @@ static std::string to_ffmpeg_filter_path(const fs::path& p) {
 #endif
 }
 
-void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& config, const std::vector<VerseData>& verses, std::shared_ptr<Interfaces::IProcessExecutor> processExecutor) {
+void VideoGenerator::generateVideo(const CLIOptions& options, 
+                                   const AppConfig& config, 
+                                   const std::vector<VerseData>& verses, 
+                                   std::shared_ptr<Interfaces::IProcessExecutor> processExecutor,
+                                   const VerseSegmentation::Manager* segmentManager) {
     try {
         std::cout << "\n=== Starting Video Rendering ===" << std::endl;
         
@@ -116,7 +121,7 @@ void VideoGenerator::generateVideo(const CLIOptions& options, const AppConfig& c
 
         std::cout << "Generating subtitles..." << std::endl;
         if (options.emitProgress) emitStageMessage("subtitles", "running", "Generating subtitles");
-        std::string ass_filename = SubtitleBuilder::buildAssFile(config, options, verses, intro_duration, pause_after_intro_duration);
+        std::string ass_filename = SubtitleBuilder::buildAssFile(config, options, verses, intro_duration, pause_after_intro_duration, segmentManager);
         std::string ass_ffmpeg_path = to_ffmpeg_filter_path(fs::path(ass_filename));
         std::string fonts_ffmpeg_path = to_ffmpeg_filter_path(fs::absolute(config.assetFolderPath) / "fonts");
         if (options.emitProgress) emitStageMessage("subtitles", "completed", "Subtitles generated");

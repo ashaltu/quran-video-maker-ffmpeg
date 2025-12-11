@@ -13,6 +13,7 @@
 #include <memory>
 #include "metadata_writer.h"
 #include "cache_utils.h"
+#include "verse_segmentation.h"
 
 namespace fs = std::filesystem;
 
@@ -60,6 +61,9 @@ int main(int argc, char* argv[]) {
         ("r2-bucket", "R2 bucket name", cxxopts::value<std::string>()->default_value("quran-background-videos"))
         ("standardize-local", "Standardize all videos in a local directory", cxxopts::value<std::string>())
         ("standardize-r2", "Standardize videos in R2 bucket (requires credentials)", cxxopts::value<std::string>())
+        ("segment-long-verses", "Enable segmentation of long verses into timed parts", cxxopts::value<bool>()->default_value("false"))
+        ("segment-data", "Path to reciter-specific segment timing JSON file", cxxopts::value<std::string>())
+        ("long-verses", "Path to list of long verses (default: metadata/long-verses.json)", cxxopts::value<std::string>()->default_value("metadata/long-verses.json"))
         ("h,help", "Print usage");
     
     cli_parser.parse_positional({"surah", "from", "to"});
@@ -167,6 +171,19 @@ int main(int argc, char* argv[]) {
     }
     if (result.count("r2-bucket")) options.videoSelection.r2Bucket = result["r2-bucket"].as<std::string>();
 
+    // Verse segmentation options
+    options.segmentLongVerses = result["segment-long-verses"].as<bool>();
+    if (result.count("segment-data")) {
+        options.segmentDataPath = result["segment-data"].as<std::string>();
+    }
+    options.longVersesPath = result["long-verses"].as<std::string>();
+
+    // Validate segmentation options
+    if (options.segmentLongVerses && options.segmentDataPath.empty()) {
+        std::cerr << "Error: --segment-long-verses requires --segment-data to specify the segment timing file." << std::endl;
+        return 1;
+    }
+
     // Custom recitation options
     if (result.count("custom-audio")) options.customAudioPath = result["custom-audio"].as<std::string>();
     if (result.count("custom-timing")) options.customTimingFile = result["custom-timing"].as<std::string>();
@@ -242,12 +259,20 @@ int main(int argc, char* argv[]) {
         std::cout << "Config: " << config.width << "x" << config.height << " @ " << config.fps << "fps, reciter=" << config.reciterId << ", translation=" << config.translationId << std::endl;
         std::cout << "Text growth: " << (config.enableTextGrowth ? "enabled" : "disabled") << std::endl;
 
-        auto processExecutor = std::make_shared<SystemProcessExecutor>();
-        auto apiClient = std::make_shared<LiveApiClient>();
-        auto verses = apiClient->fetchQuranData(options, config);
-        MetadataWriter::writeMetadata(options, config, invocationArgs);
-        VideoGenerator::generateVideo(options, config, verses, processExecutor);
-        VideoGenerator::generateThumbnail(options, config, processExecutor);
+    auto processExecutor = std::make_shared<SystemProcessExecutor>();
+    auto apiClient = std::make_shared<LiveApiClient>();
+    auto verses = apiClient->fetchQuranData(options, config);
+
+    // Create segmentation manager if enabled
+    auto segmentManager = VerseSegmentation::createManager(
+        options.segmentLongVerses,
+        options.longVersesPath,
+        options.segmentDataPath
+    );
+
+    MetadataWriter::writeMetadata(options, config, invocationArgs);
+    VideoGenerator::generateVideo(options, config, verses, processExecutor, segmentManager.get());
+    VideoGenerator::generateThumbnail(options, config, processExecutor);
 
     } catch (const std::exception& e) {
         std::cerr << "Fatal Error: " << e.what() << std::endl;

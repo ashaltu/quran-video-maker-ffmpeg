@@ -15,7 +15,7 @@
   "arabicFont": {
     "family": "KFGQPC HAFS Uthmanic Script",
     "file": "fonts/UthmanicHafs_V22.ttf",
-    "size": 100,
+    "size": 80,
     "color": "FFFFFF"
   },
   "translationFont": {
@@ -53,7 +53,7 @@
   
   "_comment_wrapping": "Text wrapping parameters",
   "textWrapThreshold": 20,
-  "arabicMaxWidthFraction": 0.95,
+  "arabicMaxWidthFraction": 1.25,
   "translationMaxWidthFraction": 0.85,
   "textHorizontalPadding": 0.05,
   "textVerticalPadding": 0.08,
