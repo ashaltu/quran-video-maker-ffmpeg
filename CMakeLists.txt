@@ -82,36 +82,23 @@ else()
         message(STATUS "Found AWS SDK components individually")
         set(AWS_SDK_LIBS aws-cpp-sdk-s3 aws-cpp-sdk-core)
     else()
-        # Try pkg-config as fallback (Homebrew)
-        find_package(PkgConfig QUIET)
-        if(PKG_CONFIG_FOUND)
-            pkg_check_modules(AWS_SDK_CORE QUIET aws-cpp-sdk-core)
-            pkg_check_modules(AWS_SDK_S3 QUIET aws-cpp-sdk-s3)
-        endif()
+        # Build AWS SDK ourselves with only S3
+        message(STATUS "Building AWS SDK with S3 only via FetchContent")
         
-        if(AWS_SDK_CORE_FOUND AND AWS_SDK_S3_FOUND)
-            message(STATUS "Found AWS SDK via pkg-config")
-            set(AWS_SDK_LIBS ${AWS_SDK_S3_LIBRARIES} ${AWS_SDK_CORE_LIBRARIES})
-            include_directories(${AWS_SDK_CORE_INCLUDE_DIRS} ${AWS_SDK_S3_INCLUDE_DIRS})
-            link_directories(${AWS_SDK_CORE_LIBRARY_DIRS} ${AWS_SDK_S3_LIBRARY_DIRS})
-        else()
-            # Try direct library search (for Homebrew installs)
-            find_library(AWS_CORE_LIB aws-cpp-sdk-core HINTS /opt/homebrew/lib /usr/local/lib)
-            find_library(AWS_S3_LIB aws-cpp-sdk-s3 HINTS /opt/homebrew/lib /usr/local/lib)
-            find_path(AWS_CORE_INCLUDE aws/core/Aws.h HINTS /opt/homebrew/include /usr/local/include)
-            
-            if(AWS_CORE_LIB AND AWS_S3_LIB AND AWS_CORE_INCLUDE)
-                message(STATUS "Found AWS SDK via direct library search")
-                set(AWS_SDK_LIBS ${AWS_S3_LIB} ${AWS_CORE_LIB})
-                include_directories(${AWS_CORE_INCLUDE})
-            else()
-                message(FATAL_ERROR 
-                    "AWS SDK not found. Please install it via:\n"
-                    "  - vcpkg: vcpkg install aws-sdk-cpp[s3]\n"
-                    "  - MSYS2: pacman -S mingw-w64-ucrt-x86_64-aws-sdk-cpp\n"
-                    "  - Homebrew: brew install aws-sdk-cpp")
-            endif()
-        endif()
+        set(BUILD_ONLY "s3" CACHE STRING "Build only S3 SDK" FORCE)
+        set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+        set(AUTORUN_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+        
+        FetchContent_Declare(
+            awssdk
+            GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
+            GIT_TAG 1.11.710
+            GIT_SHALLOW TRUE
+        )
+        FetchContent_MakeAvailable(awssdk)
+        
+        set(AWS_SDK_LIBS aws-cpp-sdk-s3 aws-cpp-sdk-core)
     endif()
 endif()
 

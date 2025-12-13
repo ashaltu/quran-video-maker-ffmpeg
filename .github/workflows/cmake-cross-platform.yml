@@ -60,10 +60,36 @@ jobs:
         git clone https://github.com/microsoft/vcpkg.git ~/vcpkg
         ~/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
-    - name: Install AWS SDK via vcpkg
-      if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+    - name: Install AWS SDK with S3 only
       run: |
-        ~/vcpkg/vcpkg install aws-sdk-cpp[s3]:x64-linux
+        if [ -d ~/aws-sdk-cache ]; then
+          echo "Using cached AWS SDK"
+          sudo cp -r ~/aws-sdk-cache/* /usr/local/
+        else
+          git clone --depth 1 --branch 1.11.710 https://github.com/aws/aws-sdk-cpp.git
+          cd aws-sdk-cpp
+          mkdir build && cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_ONLY="s3" \
+            -DENABLE_TESTING=OFF \
+            -DAUTORUN_UNIT_TESTS=OFF \
+            -DCMAKE_INSTALL_PREFIX=/usr/local
+          make -j$(nproc)
+          sudo make install
+          cd ../..
+          rm -rf aws-sdk-cpp
+          # Cache the installation
+          mkdir -p ~/aws-sdk-cache
+          sudo cp -r /usr/local/include/aws ~/aws-sdk-cache/include/ || true
+          sudo cp -r /usr/local/lib/*aws* ~/aws-sdk-cache/lib/ || true
+        fi
+
+    - name: Cache AWS SDK
+      uses: actions/cache@v4
+      with:
+        path: ~/aws-sdk-cache
+        key: aws-sdk-s3-only-v1
 
     - name: Set vcpkg environment
       run: |
@@ -195,8 +221,28 @@ jobs:
           ucrt64/mingw-w64-ucrt-x86_64-ffmpeg
           ucrt64/mingw-w64-ucrt-x86_64-freetype
           ucrt64/mingw-w64-ucrt-x86_64-harfbuzz
-          ucrt64/mingw-w64-ucrt-x86_64-aws-sdk-cpp
 
+    - name: Build and install minimal AWS SDK
+      shell: msys2 {0}
+      run: |
+        # Check if aws-sdk-cpp is already installed with full components
+        if ! pacman -Q mingw-w64-ucrt-x86_64-aws-sdk-cpp 2>/dev/null; then
+          # Build minimal version
+          git clone --depth 1 --branch 1.11.710 https://github.com/aws/aws-sdk-cpp.git
+          cd aws-sdk-cpp
+          mkdir build && cd build
+          cmake .. -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_ONLY="s3" \
+            -DENABLE_TESTING=OFF \
+            -DAUTORUN_UNIT_TESTS=OFF \
+            -DCMAKE_INSTALL_PREFIX=/ucrt64 \
+            -DBUILD_SHARED_LIBS=ON
+          ninja
+          ninja install
+          cd ../..
+          rm -rf aws-sdk-cpp
+        fi
     - name: Prepare data.tar
       shell: msys2 {0}
       run: |
