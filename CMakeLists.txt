@@ -67,14 +67,21 @@ if(NOT nlohmann_json_FOUND)
 endif()
 
 # Dependency: AWS SDK for C++
-# Try to find pre-installed AWS SDK first (from vcpkg, MSYS2, Homebrew, or system)
+# Check if we're in a Homebrew build environment
+if(DEFINED ENV{HOMEBREW_PREFIX})
+    set(IN_HOMEBREW_BUILD TRUE)
+else()
+    set(IN_HOMEBREW_BUILD FALSE)
+endif()
+
+# Try to find pre-installed AWS SDK first
 find_package(AWSSDK CONFIG COMPONENTS s3 QUIET)
 
 if(AWSSDK_FOUND)
     message(STATUS "Found AWS SDK via find_package(AWSSDK)")
     set(AWS_SDK_LIBS ${AWSSDK_LINK_LIBRARIES})
 else()
-    # Try alternative package names (MSYS2 and Homebrew use different naming)
+    # Try alternative package names
     find_package(aws-cpp-sdk-core CONFIG QUIET)
     find_package(aws-cpp-sdk-s3 CONFIG QUIET)
     
@@ -82,7 +89,7 @@ else()
         message(STATUS "Found AWS SDK components individually")
         set(AWS_SDK_LIBS aws-cpp-sdk-s3 aws-cpp-sdk-core)
     else()
-        # Try pkg-config as fallback (Homebrew)
+        # Try pkg-config as fallback
         find_package(PkgConfig QUIET)
         if(PKG_CONFIG_FOUND)
             pkg_check_modules(AWS_SDK_CORE QUIET aws-cpp-sdk-core)
@@ -95,22 +102,25 @@ else()
             include_directories(${AWS_SDK_CORE_INCLUDE_DIRS} ${AWS_SDK_S3_INCLUDE_DIRS})
             link_directories(${AWS_SDK_CORE_LIBRARY_DIRS} ${AWS_SDK_S3_LIBRARY_DIRS})
         else()
-            # Try direct library search (for Homebrew installs)
-            find_library(AWS_CORE_LIB aws-cpp-sdk-core HINTS /opt/homebrew/lib /usr/local/lib)
-            find_library(AWS_S3_LIB aws-cpp-sdk-s3 HINTS /opt/homebrew/lib /usr/local/lib)
-            find_path(AWS_CORE_INCLUDE aws/core/Aws.h HINTS /opt/homebrew/include /usr/local/include)
+            # Try direct library search
+            find_library(AWS_CORE_LIB aws-cpp-sdk-core 
+                HINTS ${CMAKE_PREFIX_PATH}/lib /opt/homebrew/lib /usr/local/lib)
+            find_library(AWS_S3_LIB aws-cpp-sdk-s3 
+                HINTS ${CMAKE_PREFIX_PATH}/lib /opt/homebrew/lib /usr/local/lib)
+            find_path(AWS_CORE_INCLUDE aws/core/Aws.h 
+                HINTS ${CMAKE_PREFIX_PATH}/include /opt/homebrew/include /usr/local/include)
             
             if(AWS_CORE_LIB AND AWS_S3_LIB AND AWS_CORE_INCLUDE)
                 message(STATUS "Found AWS SDK via direct library search")
                 set(AWS_SDK_LIBS ${AWS_S3_LIB} ${AWS_CORE_LIB})
                 include_directories(${AWS_CORE_INCLUDE})
-            else()
-                # Fetch and build only S3 component
+            elseif(NOT IN_HOMEBREW_BUILD)
+                # Only use FetchContent if not in Homebrew build
                 message(STATUS "Building AWS SDK from source (S3 only)")
                 FetchContent_Declare(
                     aws-sdk-cpp
                     GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
-                    GIT_TAG        1.11.710
+                    GIT_TAG        1.11.440
                 )
                 set(BUILD_ONLY "s3" CACHE STRING "" FORCE)
                 set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
@@ -118,6 +128,9 @@ else()
                 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
                 FetchContent_MakeAvailable(aws-sdk-cpp)
                 set(AWS_SDK_LIBS aws-cpp-sdk-s3 aws-cpp-sdk-core)
+            else()
+                message(FATAL_ERROR 
+                    "AWS SDK not found. In Homebrew builds, AWS SDK must be provided as a resource or dependency.")
             endif()
         endif()
     endif()
