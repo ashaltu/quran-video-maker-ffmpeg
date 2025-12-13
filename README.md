@@ -99,7 +99,7 @@ sudo apt-get install -y \
 ```
 
 **Windows (tested on GitHub Actions windows-2025 runner):**
-- Manual (MSYS2 UCRT64):
+- Manual (MSYS2 UCRT64) and vcpkg:
   ```bash
   pacman -S --noconfirm \
     mingw-w64-ucrt-x86_64-gcc \
@@ -114,6 +114,8 @@ sudo apt-get install -y \
     mingw-w64-ucrt-x86_64-nlohmann-json \
     mingw-w64-ucrt-x86_64-cxxopts \
     mingw-w64-ucrt-x86_64-aws-sdk-cpp
+  
+  vcpkg install "aws-sdk-cpp[core,s3]"
   ```
   Then build with CMake/Ninja under MSYS2, download `data.tar` to the repo root, `tar -xf data.tar`, and run `./build/qvm.exe ...`.
 

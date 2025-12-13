@@ -66,7 +66,7 @@ jobs:
     - name: Install AWS SDK via vcpkg
       if: steps.cache-vcpkg.outputs.cache-hit != 'true'
       run: |
-        ~/vcpkg/vcpkg install aws-sdk-cpp[s3]:x64-linux
+        ~/vcpkg/vcpkg install "aws-sdk-cpp[core,s3]:x64-linux"
 
     - name: Set vcpkg environment
       run: |

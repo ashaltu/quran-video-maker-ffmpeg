@@ -105,11 +105,19 @@ else()
                 set(AWS_SDK_LIBS ${AWS_S3_LIB} ${AWS_CORE_LIB})
                 include_directories(${AWS_CORE_INCLUDE})
             else()
-                message(FATAL_ERROR 
-                    "AWS SDK not found. Please install it via:\n"
-                    "  - vcpkg: vcpkg install aws-sdk-cpp[s3]\n"
-                    "  - MSYS2: pacman -S mingw-w64-ucrt-x86_64-aws-sdk-cpp\n"
-                    "  - Homebrew: brew install aws-sdk-cpp")
+                # Fetch and build only S3 component
+                message(STATUS "Building AWS SDK from source (S3 only)")
+                FetchContent_Declare(
+                    aws-sdk-cpp
+                    GIT_REPOSITORY https://github.com/aws/aws-sdk-cpp.git
+                    GIT_TAG        1.11.710
+                )
+                set(BUILD_ONLY "s3" CACHE STRING "" FORCE)
+                set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+                set(AUTORUN_UNIT_TESTS OFF CACHE BOOL "" FORCE)
+                set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+                FetchContent_MakeAvailable(aws-sdk-cpp)
+                set(AWS_SDK_LIBS aws-cpp-sdk-s3 aws-cpp-sdk-core)
             endif()
         endif()
     endif()
