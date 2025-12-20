@@ -105,9 +105,9 @@ else()
                 set(AWS_SDK_LIBS ${AWS_S3_LIB} ${AWS_CORE_LIB})
                 include_directories(${AWS_CORE_INCLUDE})
             else()
-                message(FATAL_ERROR 
+                message(FATAL_ERROR
                     "AWS SDK not found. Please install it via:\n"
-                    "  - vcpkg: vcpkg install aws-sdk-cpp[s3]\n"
+                    "  - vcpkg: vcpkg install \"aws-sdk-cpp[core,s3]\"\n"
                     "  - MSYS2: pacman -S mingw-w64-ucrt-x86_64-aws-sdk-cpp\n"
                     "  - Homebrew: brew install aws-sdk-cpp")
             endif()
