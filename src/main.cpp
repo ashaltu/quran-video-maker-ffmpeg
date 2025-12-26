@@ -64,6 +64,10 @@ int main(int argc, char* argv[]) {
         ("segment-long-verses", "Enable segmentation of long verses into timed parts", cxxopts::value<bool>()->default_value("false"))
         ("segment-data", "Path to reciter-specific segment timing JSON file", cxxopts::value<std::string>())
         ("long-verses", "Path to list of long verses (default: metadata/long-verses.json)", cxxopts::value<std::string>()->default_value("metadata/long-verses.json"))
+		("show-surah-header", "Show persistent surah name header throughout video", cxxopts::value<bool>()->default_value("false"))
+		("surah-header-font-size", "Font size for persistent surah header", cxxopts::value<int>()->default_value("50"))  
+		("surah-header-margin-top", "Top margin for persistent surah header", cxxopts::value<int>()->default_value("300"))
+		("skip-start-bismillah", "Skip Bismillah from beginning of video", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage");
     
     cli_parser.parse_positional({"surah", "from", "to"});
@@ -146,6 +150,10 @@ int main(int argc, char* argv[]) {
     options.encoder = result["encoder"].as<std::string>();
     options.enableTextGrowth = !result["no-growth"].as<bool>();
     options.emitProgress = result["progress"].as<bool>();
+	options.showSurahHeader = result["show-surah-header"].as<bool>();
+	options.skipStartBismillah = result["skip-start-bismillah"].as<bool>();	
+	if (result.count("surah-header-font-size")) options.surahHeaderFontSize = result["surah-header-font-size"].as<int>();  
+	if (result.count("surah-header-margin-top")) options.surahHeaderMarginTop = result["surah-header-margin-top"].as<int>();
     if (result.count("text-padding")) options.textPaddingOverride = result["text-padding"].as<double>();
     if (result.count("quality-profile")) options.qualityProfile = result["quality-profile"].as<std::string>();
     if (result.count("crf")) options.customCRF = result["crf"].as<int>();

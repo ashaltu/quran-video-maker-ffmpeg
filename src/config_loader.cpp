@@ -260,6 +260,17 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     cfg.arabicFont.size = data["arabicFont"].value("size", 100);
     cfg.arabicFont.color = data["arabicFont"].value("color", "FFFFFF");
 
+	// Load surahHeaderFont configuration  
+	if (data.contains("surahHeaderFont") && data["surahHeaderFont"].is_object()) {  
+		cfg.surahHeaderFont.family = data["surahHeaderFont"].value("family", cfg.arabicFont.family);  
+		cfg.surahHeaderFont.file = resolveFont(data["surahHeaderFont"].value("file", ""), cfg.arabicFont.file);  
+		cfg.surahHeaderFont.size = data["surahHeaderFont"].value("size", 50);  
+		cfg.surahHeaderFont.color = data["surahHeaderFont"].value("color", "FFFFFF");  
+	} else {  
+		// Fallback to arabicFont if surahHeaderFont not configured  
+		cfg.surahHeaderFont = cfg.arabicFont;  
+	}
+
     json translationFontConfig = data.contains("translationFont") ? data["translationFont"] : json::object();
     bool translationFontFamilyOverridden =
         translationFontConfig.contains("family") &&

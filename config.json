@@ -1,12 +1,12 @@
 {
   "_comment": "Video dimensions and quality",
-  "width": 1280,
-  "height": 720,
+  "width": 720,
+  "height": 1280,
   "fps": 30,
   
   "_comment_content": "Content selection",
   "reciterId": 17,
-  "translationId": 4,
+  "translationId": 0,
   "recitationMode": "gapped",
   
   "_comment_mode": "Recitation mode: 'gapped' for ayah-by-ayah (with pauses), 'gapless' for continuous surah",
@@ -15,14 +15,20 @@
   "arabicFont": {
     "family": "KFGQPC HAFS Uthmanic Script",
     "file": "fonts/UthmanicHafs_V22.ttf",
-    "size": 80,
+    "size": 70,
     "color": "FFFFFF"
   },
   "translationFont": {
-    "family": "American Captain",
-    "file": "fonts/American Captain.ttf",
+    "family": "Alvi Nastaleeq",
+    "file": "fonts/Alvi Nastaleeq Regular.ttf",
     "size": 50,
-    "color": "D3D3D3"
+    "color": "FFFFFF"
+  },
+  "surahHeaderFont": {
+    "family": "Alvi Nastaleeq",
+    "file": "fonts/Alvi Nastaleeq Regular.ttf",
+    "size": 50,
+    "color": "FFFFFF"
   },
   
   "translationFallbackFontFamily": "American Captain",
@@ -30,13 +36,13 @@
   "_comment_visual": "Visual styling",
   "overlayColor": "0x000000@0.0",
   "assetFolderPath": "assets",
-  "assetBgVideo": "videos/themes/stars.mp4",
+  "assetBgVideo": "videos/themes/stars7p.mp4",
   
   "_comment_data": "Data file paths",
   "quranWordByWordPath": "data/quran/qpc-hafs-word-by-word.json",
   
   "_comment_timing": "Timing parameters (in seconds unless specified)",
-  "introDuration": 1.0,
+  "introDuration": 0,
   "pauseAfterIntroDuration": 0.5,
   "introFadeOutMs": 500,
   
@@ -79,7 +85,7 @@
 
   "_comment_video_selection": "Dynamic background video selection",
   "videoSelection": {
-    "enableDynamicBackgrounds": false,
+    "enableDynamicBackgrounds": true,
     "seed": 99,
     
     "_comment_local": "For local directory usage",
