@@ -396,21 +396,21 @@ std::vector<VerseData> LiveApiClient::fetchQuranData(const CLIOptions& options, 
     json quranData;
     file >> quranData;
 
-    // Add Bismillah if needed
-    if (options.surah != 1 && options.surah != 9) {
-        if (config.recitationMode == RecitationMode::GAPLESS && customBismillahTiming && !options.customAudioPath.empty()) {
-            if (!results.empty()) {
-                results.insert(results.begin(), RecitationUtils::buildBismillahFromTiming(*customBismillahTiming, config, results.front().localAudioPath));
-            }
-        } else if (config.recitationMode == RecitationMode::GAPLESS) {
-            auto bismillahVerses = fetch_verses_gapless(1, 1, 1, config, !options.noCache, audioDir, options, nullptr);
-            if (!bismillahVerses.empty()) {
-                results.insert(results.begin(), bismillahVerses[0]);
-            }
-        } else {
-            results.insert(results.begin(), fetch_single_verse_gapped(1, 1, config, !options.noCache, audioDir));
-        }
-    }
+	// Add Bismillah if needed  
+	if (options.surah != 1 && options.surah != 9 && !options.skipStartBismillah) {  
+		if (config.recitationMode == RecitationMode::GAPLESS && customBismillahTiming && !options.customAudioPath.empty()) {  
+			if (!results.empty()) {  
+				results.insert(results.begin(), RecitationUtils::buildBismillahFromTiming(*customBismillahTiming, config, results.front().localAudioPath, options.skipStartBismillah));  
+			}  
+		} else if (config.recitationMode == RecitationMode::GAPLESS) {  
+			auto bismillahVerses = fetch_verses_gapless(1, 1, 1, config, !options.noCache, audioDir, options, nullptr);  
+			if (!bismillahVerses.empty()) {  
+				results.insert(results.begin(), bismillahVerses[0]);  
+			}  
+		} else {  
+			results.insert(results.begin(), fetch_single_verse_gapped(1, 1, config, !options.noCache, audioDir));  
+		}  
+	}
 
     // Fill in QPC Arabic text
     for (auto& verse : results) {

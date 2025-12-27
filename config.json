@@ -1,7 +1,7 @@
 {
   "_comment": "Video dimensions and quality",
-  "width": 1280,
-  "height": 720,
+  "width": 720,
+  "height": 1280,
   "fps": 30,
   
   "_comment_content": "Content selection",
@@ -15,16 +15,22 @@
   "arabicFont": {
     "family": "KFGQPC HAFS Uthmanic Script",
     "file": "fonts/UthmanicHafs_V22.ttf",
-    "size": 80,
+    "size": 70,
     "color": "FFFFFF"
   },
   "translationFont": {
-    "family": "American Captain",
-    "file": "fonts/American Captain.ttf",
+    "family": "Alvi Nastaleeq",
+    "file": "fonts/Alvi Nastaleeq Regular.ttf",
     "size": 50,
-    "color": "D3D3D3"
+    "color": "FFFFFF"
   },
-  
+  "surahHeaderFont": {
+    "family": "Alvi Nastaleeq",
+    "file": "fonts/Alvi Nastaleeq Regular.ttf",
+    "size": 50,
+    "color": "FFFFFF"
+  },
+    
   "translationFallbackFontFamily": "American Captain",
   
   "_comment_visual": "Visual styling",

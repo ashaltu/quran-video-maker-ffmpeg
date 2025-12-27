@@ -94,57 +94,57 @@ double CustomAudioProcessor::probeDuration(const std::string& filepath) {
     return duration;
 }
 
-SplicePlan CustomAudioProcessor::buildSplicePlan(const std::vector<VerseData>& verses,
-                                                 const CLIOptions& options) {
-    SplicePlan plan;
-    if (options.customAudioPath.empty() || verses.empty()) {
-        return plan;
-    }
-
-    plan.hasBismillah = !verses.empty() && verses.front().verseKey == "1:1";
-    double mainStart = std::numeric_limits<double>::infinity();
-    double mainEnd = -std::numeric_limits<double>::infinity();
-
-    for (const auto& verse : verses) {
-        if (!verse.fromCustomAudio) continue;
-        if (verse.verseKey == "1:1") {
-            plan.bismillahFromCustomSource = true;
-            plan.bismillahStartMs = verse.absoluteTimestampFromMs;
-            plan.bismillahEndMs = verse.absoluteTimestampToMs;
-            if (plan.sourceAudioPath.empty() && !verse.sourceAudioPath.empty()) {
-                plan.sourceAudioPath = verse.sourceAudioPath;
-            }
-            continue;
-        }
-        mainStart = std::min(mainStart, static_cast<double>(verse.absoluteTimestampFromMs));
-        mainEnd = std::max(mainEnd, static_cast<double>(verse.absoluteTimestampToMs));
-        if (plan.sourceAudioPath.empty() && !verse.sourceAudioPath.empty()) {
-            plan.sourceAudioPath = verse.sourceAudioPath;
-        }
-    }
-
-    if (!std::isfinite(mainStart) || mainEnd <= mainStart || plan.sourceAudioPath.empty()) {
-        return plan;
-    }
-
-    plan.enabled = true;
-    plan.mainStartMs = mainStart;
-    plan.mainEndMs = mainEnd;
-
+SplicePlan CustomAudioProcessor::buildSplicePlan(const std::vector<VerseData>& verses,  
+                                                 const CLIOptions& options) {  
+    SplicePlan plan;  
+    if (options.customAudioPath.empty() || verses.empty()) {  
+        return plan;  
+    }  
+  
+	plan.hasBismillah = !options.skipStartBismillah && !verses.empty() && verses.front().verseKey == "1:1";
+    double mainStart = std::numeric_limits<double>::infinity();  
+    double mainEnd = -std::numeric_limits<double>::infinity();  
+  
+    for (const auto& verse : verses) {  
+        if (!verse.fromCustomAudio) continue;  
+        if (verse.verseKey == "1:1") {  
+            plan.bismillahFromCustomSource = true;  
+            plan.bismillahStartMs = verse.absoluteTimestampFromMs;  
+            plan.bismillahEndMs = verse.absoluteTimestampToMs;  
+            if (plan.sourceAudioPath.empty() && !verse.sourceAudioPath.empty()) {  
+                plan.sourceAudioPath = verse.sourceAudioPath;  
+            }  
+            continue;  
+        }  
+        mainStart = std::min(mainStart, static_cast<double>(verse.absoluteTimestampFromMs));  
+        mainEnd = std::max(mainEnd, static_cast<double>(verse.absoluteTimestampToMs));  
+        if (plan.sourceAudioPath.empty() && !verse.sourceAudioPath.empty()) {  
+            plan.sourceAudioPath = verse.sourceAudioPath;  
+        }  
+    }  
+  
+    if (!std::isfinite(mainStart) || mainEnd <= mainStart || plan.sourceAudioPath.empty()) {  
+        return plan;  
+    }  
+  
+    plan.enabled = true;  
+    plan.mainStartMs = mainStart;  
+    plan.mainEndMs = mainEnd;  
+  
     if (plan.hasBismillah) {
-        const auto& bismVerse = verses.front();
-        if (!plan.bismillahFromCustomSource) {
-            plan.bismillahStartMs = bismVerse.absoluteTimestampFromMs;
-            plan.bismillahEndMs = bismVerse.absoluteTimestampToMs;
-        }
-        plan.paddingOffsetMs = plan.bismillahFromCustomSource
-            ? (plan.bismillahEndMs - plan.bismillahStartMs)
-            : bismVerse.durationInSeconds * 1000.0;
-    } else {
-        plan.paddingOffsetMs = 0.0;
-    }
-
-    return plan;
+        const auto& bismVerse = verses.front();  
+        if (!plan.bismillahFromCustomSource) {  
+            plan.bismillahStartMs = bismVerse.absoluteTimestampFromMs;  
+            plan.bismillahEndMs = bismVerse.absoluteTimestampToMs;  
+        }  
+        plan.paddingOffsetMs = plan.bismillahFromCustomSource  
+            ? (plan.bismillahEndMs - plan.bismillahStartMs)  
+            : bismVerse.durationInSeconds * 1000.0;  
+    } else {  
+        plan.paddingOffsetMs = 0.0;  
+    }  
+  
+    return plan;  
 }
 
 void CustomAudioProcessor::spliceRange(std::vector<VerseData>& verses,
@@ -162,7 +162,7 @@ void CustomAudioProcessor::spliceRange(std::vector<VerseData>& verses,
     std::vector<std::string> segments;
     double bismDurationMs = 0.0;
 
-    if (plan.hasBismillah) {
+    if (plan.hasBismillah && !options.skipStartBismillah) {  
         const auto& bismVerse = verses.front();
         if (plan.bismillahFromCustomSource) {
             std::string bismSource = !bismVerse.sourceAudioPath.empty()

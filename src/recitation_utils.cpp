@@ -21,7 +21,15 @@ void normalizeGaplessTimings(std::vector<VerseData>& verses) {
 
 VerseData buildBismillahFromTiming(const TimingEntry& timing,
                                    const AppConfig& config,
-                                   const std::string& localAudioPath) {
+                                   const std::string& localAudioPath, 
+								   bool skipStartBismillah) {
+
+	if (skipStartBismillah) {  
+        // Return empty verse data when skipping Bismillah  
+        VerseData empty;  
+        return empty;  
+    }  
+	
     VerseData verse;
     verse.verseKey = "1:1";
     verse.text.clear();
