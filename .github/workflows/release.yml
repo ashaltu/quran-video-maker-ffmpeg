@@ -66,7 +66,7 @@ jobs:
     - name: Install AWS SDK via vcpkg
       if: steps.cache-vcpkg.outputs.cache-hit != 'true'
       run: |
-        ~/vcpkg/vcpkg install aws-sdk-cpp[s3]:x64-linux
+        ~/vcpkg/vcpkg install "aws-sdk-cpp[core,s3]:x64-linux"
 
     - name: Set vcpkg environment
       run: |
@@ -272,10 +272,15 @@ jobs:
         VERSION="${{ github.event.inputs.version }}"
         VER_NO_V="${VERSION#v}"
         WIN_ZIP=$(find artifacts/windows -name "qvm-*-win64.zip" -printf "%f\n" | head -n1)
+        
+        # Remove -dev suffix if present in the zip filename for the URL
+        WIN_ZIP_CLEAN=$(echo "$WIN_ZIP" | sed 's/-dev//')
+        
         cp scoop/qvm.json scoop-qvm.json
         sed -i.bak \
+          -e "s/0.0.0-dev/${VER_NO_V}/g" \
           -e "s/0.0.0/${VER_NO_V}/g" \
-          -e "s|qvm-0.0.0-dev-win64.zip|${WIN_ZIP}|" \
+          -e "s|qvm-0.0.0-dev-win64.zip|${WIN_ZIP_CLEAN}|" \
           -e "s|qvm-0.0.0-win64|qvm-${VER_NO_V}-win64|" \
           -e "s/REPLACE_WITH_SHA256_OF_qvm-bin-windows.zip/${{ steps.winsha.outputs.win_sha }}/" \
           scoop-qvm.json
