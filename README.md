@@ -1,13 +1,15 @@
 # quran-video-maker-ffmpeg [WIP]
 
-[![CMake (Linux + macOS + Windows)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/cmake-cross-platform.yml/badge.svg)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/cmake-cross-platform.yml) [![Release](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/release.yml/badge.svg)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/release.yml) [![Update Package Managers](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/update-package-managers.yml/badge.svg)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/update-package-managers.yml) [![Install Smoke Test](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/install-smoke.yml/badge.svg)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/install-smoke.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ashaltu/quran-video-maker-ffmpeg)
+[![CMake (Linux + macOS + Windows)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/cmake-cross-platform.yml/badge.svg)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/cmake-cross-platform.yml) [![Release](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/release.yml/badge.svg)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/release.yml) [![Update Package Managers](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/update-package-managers.yml/badge.svg)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/update-package-managers.yml) [![Install Smoke Test](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/install-smoke.yml/badge.svg)](https://github.com/ashaltu/quran-video-maker-ffmpeg/actions/workflows/install-smoke.yml) 
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ashaltu/quran-video-maker-ffmpeg) [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white)](https://discord.gg/UWMuAzVw)
 
 <p align="center">
   A high-performance C++/FFmpeg tool for generating beautiful Quran verse videos with synchronized Arabic text, translations, and recitations.
 </p>
 
 <p align="center">
-  <strong>⚠️ This project is in active development. A lightweight unit test suite is included, but expect rapid changes.</strong>
+  <strong>⚠️ This project is in active development. Expect frequent breaking changes. A lightweight unit test suite is included, so it shouldn't be depended on for production. </strong>
 </p>
 
 
@@ -227,7 +229,26 @@ For very long verses that don't fit on screen, you can break them into timed seg
 |--------|-------------|---------|
 | `--segment-long-verses` | Enable segmentation of long verses | false |
 | `--segment-data` | Path to segment timing JSON file (required when enabled) | - |
-| `--long-verses` | Path to list of long verses | `metadata/long-verses.json` |
+| `--long-verses` | Path to list of long verses | e.g. `metadata/long-verses.json` |
+
+**Quick Start with Verse Segmentation for Long Verses**
+
+The data.tar of this repo already comes with timings for the top 109 longest verses for four languages (English, Urdu, Oromo, Amharic) and all ayah-by ayah reciters as of December 2025. All this data can be found in the `data/phrase-timings`. Here is a quick start to use the data.
+
+```bash
+qvm 2 282 282 \
+--reciter=2 \
+--translation=1 \
+--segment-long-verses \
+--long-verses data/phrase-timings/long-verses.json \
+--segment-data data/phrase-timings/timings/2_Abdur_Rahman_as_Sudais_Recitation/en-sahih-international-simple/segments.json
+```
+
+*Note: `reciter` and `translation` id values should match the segment-data path. So `2_Abdur_Rahman_as_Sudais_Recitation` is prepended with `2_` indicating its reciter id 2. And for the translation id its dependent on the next part, so `en-sahih-international-simple` maps to translation id 1 because in `src/quran_data.h` English is translation id 1.*
+
+**How to create verse segmentations for new reciters, languages, verses?**
+
+I created this notebook just for that: https://github.com/ashaltu/quran_segmenter/blob/main/notebooks/quran_segmenter_colab.ipynb. 
 
 **Segment Data Format:**
 
@@ -431,6 +452,8 @@ Special thanks to these organizations for making their resources freely availabl
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues and pull requests.
+
+Feel free to [ask questions on the Discord server](https://discord.gg/UWMuAzVw).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how you can help move [ROADMAP.md](ROADMAP.md) features forward.
 
