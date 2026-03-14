@@ -101,7 +101,7 @@ SplicePlan CustomAudioProcessor::buildSplicePlan(const std::vector<VerseData>& v
         return plan;
     }
 
-    plan.hasBismillah = !verses.empty() && verses.front().verseKey == "1:1";
+    plan.hasBismillah = !options.skipStartBismillah && !verses.empty() && verses.front().verseKey == "1:1";
     double mainStart = std::numeric_limits<double>::infinity();
     double mainEnd = -std::numeric_limits<double>::infinity();
 
@@ -162,7 +162,7 @@ void CustomAudioProcessor::spliceRange(std::vector<VerseData>& verses,
     std::vector<std::string> segments;
     double bismDurationMs = 0.0;
 
-    if (plan.hasBismillah) {
+    if (plan.hasBismillah && !options.skipStartBismillah) {
         const auto& bismVerse = verses.front();
         if (plan.bismillahFromCustomSource) {
             std::string bismSource = !bismVerse.sourceAudioPath.empty()

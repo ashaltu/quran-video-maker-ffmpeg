@@ -1,7 +1,7 @@
 {
   "_comment": "Video dimensions and quality",
-  "width": 1280,
-  "height": 720,
+  "width": 720,
+  "height": 1280,
   "fps": 30,
   
   "_comment_content": "Content selection",
@@ -18,25 +18,25 @@
     "size": 80,
     "color": "FFFFFF"
   },
-  "translationFont": {
-    "family": "American Captain",
-    "file": "fonts/American Captain.ttf",
-    "size": 50,
-    "color": "D3D3D3"
-  },
   
-  "translationFallbackFontFamily": "American Captain",
+  "translationFont": {
+    "size": 55,
+    "color": "FFFFFF",
+    "_comments_size": "Adjust or pass throgh CLI parameters for e.g. --translation-font-size 55 for Urdu, 35 for English / French"
+  },
+
+  "translationFallbackFontFamily": "Roboto",
   
   "_comment_visual": "Visual styling",
   "overlayColor": "0x000000@0.0",
   "assetFolderPath": "assets",
-  "assetBgVideo": "videos/themes/stars.mp4",
+  "assetBgVideo": "videos/themes/starsPortrait.mp4",
   
   "_comment_data": "Data file paths",
   "quranWordByWordPath": "data/quran/qpc-hafs-word-by-word.json",
   
   "_comment_timing": "Timing parameters (in seconds unless specified)",
-  "introDuration": 1.0,
+  "introDuration": 0.0,
   "pauseAfterIntroDuration": 0.5,
   "introFadeOutMs": 500,
   

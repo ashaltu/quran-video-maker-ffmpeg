@@ -48,3 +48,5 @@ data.tar
 .vscode
 dump_*
 assets/custom_audio_test/*.wav
+assets/logos/logo.png
+assets/videos/themes/starsPortrait2.mp4

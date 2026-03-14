@@ -304,6 +304,22 @@ void VideoGenerator::generateVideo(const CLIOptions& options,
 
         std::cout << "\n✅ Render complete! Video saved to: " << options.output << std::endl;
 
+        //format output filename - to save Arabic surahname in filename
+        std::string englishName = QuranData::surahNames.at(options.surah);
+        std::string arabicName = LocalizationUtils::getLocalizedSurahName(options.surah, "ar");
+        std::string filename = "Surah - " + std::to_string(options.surah) + "_" + std::to_string(options.from) + "_" + std::to_string(options.to) + " - " + englishName + " - " + arabicName + " - t" + std::to_string(options.translationId) + "_r" + std::to_string(options.reciterId) + ".mp4";
+        fs::path outputPath = fs::path("out") / fs::u8path(filename);
+        try
+        {
+            fs::rename(options.output, outputPath);
+            std::cout << "✅ File renamed to: " << outputPath << std::endl;
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "❌ Failed to rename file: " << e.what() << std::endl;
+        }
+
+
     } catch(const std::exception& e) {
         std::cerr << "❌ An error occurred during video generation: " << e.what() << std::endl;
     }

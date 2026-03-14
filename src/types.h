@@ -42,6 +42,7 @@ struct AppConfig {
     // Font configuration
     FontConfig arabicFont;
     FontConfig translationFont;
+	FontConfig surahHeaderFont;
     std::string translationFallbackFontFamily;
     
     // Visual styling
@@ -135,6 +136,7 @@ struct CLIOptions {
     int fps = -1;
     int arabicFontSize = -1;
     int translationFontSize = -1;
+    std::string translationFontColor = "";
     bool noCache = false;
     bool clearCache = false;
     std::string preset = "fast";
@@ -142,6 +144,10 @@ struct CLIOptions {
     std::string recitationMode = "";  // "gapped" or "gapless"
     bool presetProvided = false;
     bool emitProgress = false;
+	bool showSurahHeader = false;
+	int surahHeaderFontSize = 50;  
+	int surahHeaderMarginTop = 100;
+	bool skipStartBismillah = false;
     
     // Custom recitation support (gapless only)
     std::string customAudioPath = "";     // Path or URL to audio file

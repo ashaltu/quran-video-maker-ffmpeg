@@ -397,10 +397,10 @@ std::vector<VerseData> LiveApiClient::fetchQuranData(const CLIOptions& options, 
     file >> quranData;
 
     // Add Bismillah if needed
-    if (options.surah != 1 && options.surah != 9) {
+    if (options.surah != 1 && options.surah != 9 && !options.skipStartBismillah) {
         if (config.recitationMode == RecitationMode::GAPLESS && customBismillahTiming && !options.customAudioPath.empty()) {
             if (!results.empty()) {
-                results.insert(results.begin(), RecitationUtils::buildBismillahFromTiming(*customBismillahTiming, config, results.front().localAudioPath));
+                results.insert(results.begin(), RecitationUtils::buildBismillahFromTiming(*customBismillahTiming, config, results.front().localAudioPath, options.skipStartBismillah));
             }
         } else if (config.recitationMode == RecitationMode::GAPLESS) {
             auto bismillahVerses = fetch_verses_gapless(1, 1, 1, config, !options.noCache, audioDir, options, nullptr);
@@ -435,7 +435,7 @@ std::vector<VerseData> LiveApiClient::fetchQuranData(const CLIOptions& options, 
     }
 
     // Remove last word from Bismillah if it's not Surah 1 or 9
-    if (options.surah != 1 && options.surah != 9) {
+    if ((options.surah != 1 && options.surah != 9) || options.skipStartBismillah) {
         if (!results.empty() && !results[0].text.empty()) {
             trim_last_word(results[0].text);
         }

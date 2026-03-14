@@ -80,7 +80,7 @@ void testRecitationUtils() {
     entry.endMs = 1000;
     CLIOptions opts;
     AppConfig cfg = loadConfig((getProjectRoot() / "config.json").string(), opts);
-    VerseData bismillah = RecitationUtils::buildBismillahFromTiming(entry, cfg, "audio.mp3");
+    VerseData bismillah = RecitationUtils::buildBismillahFromTiming(entry, cfg, "audio.mp3", false);
     assert(bismillah.verseKey == "1:1");
     assert(bismillah.durationInSeconds > 0);
 }

@@ -2,6 +2,8 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <iostream>  
+#include <ostream>
 
 namespace QuranData {
     // Font mappings for different languages
@@ -10,18 +12,20 @@ namespace QuranData {
     };
     
     inline const std::map<int, std::string> translationFontMappings = {
-        {1, "fonts/American Captain.ttf"},      // English - Sahih International
-        {2, "fonts/American Captain.ttf"},      // Oromo (Latin script)
+        {1, "fonts/Roboto-Regular.ttf"},      // English - Sahih International
+        {2, "fonts/Roboto-Regular.ttf"},      // Oromo (Latin script)
         {3, "fonts/AbyssinicaSIL-Regular.ttf"}, // Amharic
-        {4, "fonts/Jameel Noori Nastaleeq Kasheeda.ttf"} // Urdu
+        {4, "fonts/Jameel Noori Nastaleeq Kasheeda.ttf"}, // Urdu
+        {5, "fonts/Roboto-Regular.ttf"}  // French font 
         // Add more language mappings as needed
     };
 
     inline const std::map<int, std::string> translationFontFamilies = {
-        {1, "American Captain"},
-        {2, "American Captain"},
+        {1, "Roboto"},
+        {2, "Roboto"},
         {3, "Abyssinica SIL"},
-        {4, "Jameel Noori Nastaleeq"}
+        {4, "Jameel Noori Nastaleeq"},
+        {5, "Roboto"}  
     };
     
     // Mapping translationId -> RTL flag
@@ -29,7 +33,8 @@ namespace QuranData {
         {1, false}, // English
         {2, false}, // Oromo
         {3, false}, // Amharic
-        {4, true}   // Urdu
+        {4, true},   // Urdu
+        {5, false}  // French 
     };
 
         // Language names for translation IDs
@@ -37,7 +42,8 @@ namespace QuranData {
         {1, "en"},
         {2, "om"},
         {3, "amh"},
-        {4, "urd"}
+        {4, "urd"},
+        {5, "fr"}  
     };
     
     // Mapping translationId -> translation JSON path
@@ -45,7 +51,8 @@ namespace QuranData {
         {1, "data/translations/en/en-sahih-international-clean.json"},
         {2, "data/translations/om/ghali-apapur-apaghuna-clean.json"},
         {3, "data/translations/amh/am-sadiq-simple.json"},
-        {4, "data/translations/urd/ur-fatah-muhammad-jalandhari-simple.json"}
+        {4, "data/translations/urd/ur-fatah-muhammad-jalandhari-simple.json"},
+        {5, "data/translations/fr/fr-hamidullah-clean.json"} 
     };
     
     // Background video themes
@@ -55,8 +62,8 @@ namespace QuranData {
     
     // Default assets
     inline const std::string defaultArabicFont = "fonts/UthmanicHafs_V22.ttf";
-    inline const std::string defaultTranslationFont = "fonts/American Captain.ttf";
-    inline const std::string defaultTranslationFontFamily = "American Captain";
+    inline const std::string defaultTranslationFont = "fonts/Roboto-Regular.ttf";
+    inline const std::string defaultTranslationFontFamily = "Roboto";
     inline const std::string defaultBackgroundVideo = "videos/themes/stars.mp4";
 
     // Mapping reciterId -> full ayah JSON path (GAPPED mode)
@@ -327,10 +334,12 @@ namespace QuranData {
     
     // Helper function to get font for translation
     inline std::string getTranslationFont(int translationId) {
+        //std::cout << "DEBUG: getTranslationFont called with ID " << translationId << std::endl; 
         auto it = translationFontMappings.find(translationId);
         if (it != translationFontMappings.end()) {
             return it->second;
         }
+        //std::cout << "DEBUG: Using default font: " << defaultTranslationFont << std::endl;  
         return defaultTranslationFont;
     }
 

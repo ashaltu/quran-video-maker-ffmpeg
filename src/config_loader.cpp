@@ -260,6 +260,8 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     cfg.arabicFont.size = data["arabicFont"].value("size", 100);
     cfg.arabicFont.color = data["arabicFont"].value("color", "FFFFFF");
 
+    cfg.surahHeaderFont = cfg.arabicFont;  
+                     
     json translationFontConfig = data.contains("translationFont") ? data["translationFont"] : json::object();
     bool translationFontFamilyOverridden =
         translationFontConfig.contains("family") &&
@@ -284,6 +286,11 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
         transFontFile = QuranData::getTranslationFont(cfg.translationId);
     }
     cfg.translationFont.file = resolveFont(transFontFile, QuranData::defaultTranslationFont);
+
+    //DEBUG Translation Font Info
+    //std::cout << "DEBUG: Translation font resolved to: " << cfg.translationFont.file << std::endl;
+    //std::cout << "DEBUG: Translation ID = " << cfg.translationId << std::endl;  
+    //std::cout << "DEBUG: Font from QuranData::getTranslationFont() = " << QuranData::getTranslationFont(cfg.translationId) << std::endl;
 
     // Data paths
     cfg.quranWordByWordPath = resolvePath(data.value("quranWordByWordPath", "data/quran/qpc-hafs-word-by-word.json"));
@@ -400,6 +407,7 @@ AppConfig loadConfig(const std::string& path, CLIOptions& options) {
     if (options.fps != -1) cfg.fps = options.fps;
     if (options.arabicFontSize != -1) cfg.arabicFont.size = options.arabicFontSize;
     if (options.translationFontSize != -1) cfg.translationFont.size = options.translationFontSize;
+    if (!options.translationFontColor.empty()) cfg.translationFont.color = options.translationFontColor;
     if (options.textPaddingOverride >= 0.0) {
         cfg.textHorizontalPadding = std::clamp(options.textPaddingOverride, 0.0, 0.45);
     }

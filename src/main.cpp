@@ -14,10 +14,16 @@
 #include "metadata_writer.h"
 #include "cache_utils.h"
 #include "verse_segmentation.h"
+#include "localization_utils.h"
+#include <windows.h>
 
 namespace fs = std::filesystem;
 
 int main(int argc, char* argv[]) {
+    
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
     std::vector<std::string> invocationArgs(argv, argv + argc);
     cxxopts::Options cli_parser("QuranVideoMaker", "Generates Quran videos using FFmpeg");
     // TODO: fix so default values removed and values read from config instead
@@ -35,6 +41,7 @@ int main(int argc, char* argv[]) {
         ("fps", "Frames per second", cxxopts::value<int>())
         ("arabic-font-size", "Override Arabic font size", cxxopts::value<int>())
         ("translation-font-size", "Override translation font size", cxxopts::value<int>())
+        ("translation-font-color", "Override translation font color (hex format, e.g., FFFFFF)", cxxopts::value<std::string>())
         ("text-padding", "Horizontal padding fraction (0-0.45) for subtitles", cxxopts::value<double>())
         ("e,encoder", "Choose encoder: 'software' (default) or 'hardware'", cxxopts::value<std::string>()->default_value("software"))
         ("p,preset", "Software encoder preset for speed/quality (ultrafast, fast, medium)", cxxopts::value<std::string>()->default_value("fast"))
@@ -64,6 +71,10 @@ int main(int argc, char* argv[]) {
         ("segment-long-verses", "Enable segmentation of long verses into timed parts", cxxopts::value<bool>()->default_value("false"))
         ("segment-data", "Path to reciter-specific segment timing JSON file", cxxopts::value<std::string>())
         ("long-verses", "Path to list of long verses (default: metadata/long-verses.json)", cxxopts::value<std::string>()->default_value("metadata/long-verses.json"))
+		("show-surah-header", "Show persistent surah name header throughout video", cxxopts::value<bool>()->default_value("false"))
+		("surah-header-font-size", "Font size for persistent surah header", cxxopts::value<int>()->default_value("50"))  
+		("surah-header-margin-top", "Top margin for persistent surah header", cxxopts::value<int>()->default_value("300"))
+		("skip-start-bismillah", "Skip Bismillah from beginning of video", cxxopts::value<bool>()->default_value("false"))
         ("h,help", "Print usage");
     
     cli_parser.parse_positional({"surah", "from", "to"});
@@ -139,6 +150,7 @@ int main(int argc, char* argv[]) {
     if (result.count("fps")) options.fps = result["fps"].as<int>();
     if (result.count("arabic-font-size")) options.arabicFontSize = result["arabic-font-size"].as<int>();
     if (result.count("translation-font-size")) options.translationFontSize = result["translation-font-size"].as<int>();
+    if (result.count("translation-font-color")) options.translationFontColor = result["translation-font-color"].as<std::string>();
     options.noCache = result["no-cache"].as<bool>();
     options.clearCache = result["clear-cache"].as<bool>();
     options.preset = result["preset"].as<std::string>();
@@ -146,6 +158,10 @@ int main(int argc, char* argv[]) {
     options.encoder = result["encoder"].as<std::string>();
     options.enableTextGrowth = !result["no-growth"].as<bool>();
     options.emitProgress = result["progress"].as<bool>();
+	options.showSurahHeader = result["show-surah-header"].as<bool>();
+	options.skipStartBismillah = result["skip-start-bismillah"].as<bool>();	
+	if (result.count("surah-header-font-size")) options.surahHeaderFontSize = result["surah-header-font-size"].as<int>();  
+	if (result.count("surah-header-margin-top")) options.surahHeaderMarginTop = result["surah-header-margin-top"].as<int>();
     if (result.count("text-padding")) options.textPaddingOverride = result["text-padding"].as<double>();
     if (result.count("quality-profile")) options.qualityProfile = result["quality-profile"].as<std::string>();
     if (result.count("crf")) options.customCRF = result["crf"].as<int>();
@@ -218,7 +234,14 @@ int main(int argc, char* argv[]) {
                 throw std::runtime_error("Failed to create directory: " + default_output_dir.string());
             }
         }
-        options.output = "out/surah-" + std::to_string(options.surah) + "_" + std::to_string(options.from) + "-" + std::to_string(options.to) + ".mp4";
+        
+        //options.output = "out/surah-" + std::to_string(options.surah) + "_" + std::to_string(options.from) + "-" + std::to_string(options.to) + ".mp4";
+
+		//format output filename
+		std::string englishName = QuranData::surahNames.at(options.surah);  
+		std::string arabicName = LocalizationUtils::getLocalizedSurahName(options.surah, "ar");  //to add arabic surah name in file name
+        //std::cout << "Arabic Surah Name " << arabicName << std::endl;
+		options.output = "out/Surah - " + std::to_string(options.surah) + "_" + std::to_string(options.from) + "_" + std::to_string(options.to) + " - " + englishName + " - t" + std::to_string(options.translationId) + "_r" + std::to_string(options.reciterId) + ".mp4";
     }
     
     try {
